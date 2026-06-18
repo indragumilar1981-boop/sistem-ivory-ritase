@@ -1,0 +1,17 @@
+{
+  "name": "sistem-ritase-ivory",
+  "version": "1.0.0",
+  "description": "Sistem Perhitungan Ritase Supir Mobil Tanki - Sistem Ivory",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0"
+  }
+}
