@@ -493,18 +493,13 @@
                     </div>
                     
                     <form id="adminRatesForm" class="interactive-form" style="gap: 10px; margin-bottom: 12px;" novalidate>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 8px; width: 100%; align-items: end;">
+                        <input type="hidden" id="rateUangMakan">
+                        <div style="display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 8px; width: 100%; align-items: end;">
                             <div class="form-group" style="gap: 4px;">
                                 <label for="rateBatasKM" style="font-size: 11px;">Batas Min. KM Ritase</label>
                                 <div class="input-wrapper">
                                     <input type="number" id="rateBatasKM" min="1" required style="padding: 8px 10px; font-size: 13px; padding-right: 28px;">
                                     <span class="unit" style="font-size: 10px; right: 8px;">km</span>
-                                </div>
-                            </div>
-                            <div class="form-group" style="gap: 4px;">
-                                <label for="rateUangMakan" style="font-size: 11px;">Uang Makan</label>
-                                <div class="input-wrapper">
-                                    <input type="number" id="rateUangMakan" min="0" required style="padding: 8px 10px; font-size: 13px;">
                                 </div>
                             </div>
                             <div class="form-group" style="gap: 4px;">
