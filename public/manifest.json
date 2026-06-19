@@ -2,14 +2,20 @@
   "name": "Sistem Ritase Ivory",
   "short_name": "Sistem Ivory",
   "description": "Sistem Pelacakan dan Perhitungan Ritase Supir Mobil Tanki - Sistem Ivory",
-  "start_url": "./index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0d1527",
   "theme_color": "#151f32",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "./icon-512.png",
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

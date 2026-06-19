@@ -1,18 +1,16 @@
 const CACHE_NAME = 'ivory-cache-v1';
-const ASSETS = [
-  './',
-  './index.html',
-  './app.js',
-  './style.css',
-  './firebase.js',
-  './icon-512.png',
-  './manifest.json'
+const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+      return cache.addAll(PRECACHE_ASSETS);
     }).then(() => self.skipWaiting())
   );
 });
@@ -32,7 +30,7 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) {
+  if (e.request.method !== 'GET') {
     return;
   }
   
