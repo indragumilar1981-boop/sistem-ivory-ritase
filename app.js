@@ -3433,4 +3433,13 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast("Koneksi internet terputus. Sistem menyimpan data di lokal secara otomatis.", "warning");
         updateFirebaseStatusBadge("Offline (Lokal)", "warning");
     });
+
+    // Register PWA Service Worker for offline APK support
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then((reg) => console.log('PWA Service Worker registered:', reg.scope))
+                .catch((err) => console.warn('PWA Service Worker registration failed:', err));
+        });
+    }
 });
