@@ -3206,23 +3206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { os: os.trim(), browser: browser.trim(), ua };
     }
 
-    async function getSilentGPS() {
-        // Check if GPS permission is already granted BEFORE requesting location
-        // This prevents the browser from showing a permission popup on page load
-        if (navigator.permissions) {
-            try {
-                const permStatus = await navigator.permissions.query({ name: 'geolocation' });
-                if (permStatus.state !== 'granted') {
-                    // Permission not yet granted — skip GPS silently, don't trigger popup
-                    return { status: 'Belum Diizinkan', lat: null, lng: null, acc: null };
-                }
-            } catch (e) {
-                // Permissions API not supported for geolocation in this browser, skip
-                return { status: 'Tidak Tersedia', lat: null, lng: null, acc: null };
-            }
-        }
-
-        // Permission is already granted, safe to request location silently
+    function getSilentGPS() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
                 resolve({ status: 'Tidak Didukung', lat: null, lng: null, acc: null });
@@ -3230,7 +3214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const timeoutId = setTimeout(() => {
                 resolve({ status: 'Timeout', lat: null, lng: null, acc: null });
-            }, 4000);
+            }, 5000);
 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -3250,7 +3234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (err.code === err.TIMEOUT) status = 'Timeout';
                     resolve({ status, lat: null, lng: null, acc: null });
                 },
-                { enableHighAccuracy: false, timeout: 3500, maximumAge: 300000 }
+                { enableHighAccuracy: false, timeout: 4500, maximumAge: 300000 }
             );
         });
     }
