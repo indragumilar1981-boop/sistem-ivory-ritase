@@ -1800,6 +1800,7 @@ document.addEventListener('DOMContentLoaded', () => {
         masterAmt = JSON.parse(localStorage.getItem(STORAGE_KEY_AMT)) || DEFAULT_AMT;
         ratesSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_RATES)) || DEFAULT_RATES;
 
+        const inputSyncRoomId = document.getElementById('inputSyncRoomId');
         if (inputSyncRoomId) {
             inputSyncRoomId.value = syncRoomId;
         }
