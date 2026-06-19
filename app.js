@@ -180,6 +180,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileTBBMInput = document.getElementById('fotoTBBMInput');
     const btnFotoTBBM = document.getElementById('btnFotoTBBM');
     const previewTBBM = document.getElementById('previewTBBM');
+    
+    // Step 1 Face Verification Elements
+    const fileWajahMulaiInput = document.getElementById('fotoWajahMulaiInput');
+    const btnFotoWajahMulai = document.getElementById('btnFotoWajahMulai');
+    const previewWajahMulai = document.getElementById('previewWajahMulai');
+
+    // Step 2 Face & Handover Verification Elements
+    const fileWajahTibaInput = document.getElementById('fotoWajahTibaInput');
+    const btnFotoWajahTiba = document.getElementById('btnFotoWajahTiba');
+    const previewWajahTiba = document.getElementById('previewWajahTiba');
+    const fileDokumenTibaInput = document.getElementById('fotoDokumenTibaInput');
+    const btnFotoDokumenTiba = document.getElementById('btnFotoDokumenTiba');
+    const previewDokumenTiba = document.getElementById('previewDokumenTiba');
+    const signatureCanvas = document.getElementById('signatureCanvas');
+    const btnClearSignature = document.getElementById('btnClearSignature');
+
+    // Step 3 Face Verification Elements
+    const fileWajahSelesaiInput = document.getElementById('fotoWajahSelesaiInput');
+    const btnFotoWajahSelesai = document.getElementById('btnFotoWajahSelesai');
+    const previewWajahSelesai = document.getElementById('previewWajahSelesai');
+
+    // Face Scan Overlay Element
+    const faceScanOverlay = document.getElementById('faceScanOverlay');
+    
     const startGpsCoords = document.getElementById('startGpsCoords');
     const startGpsBox = document.getElementById('startGpsBox');
     
@@ -544,6 +568,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let tempFotoAmt = null;
     let tempFotoOwnuse = null;
     let tempFotoTol = null;
+    let tempFotoWajahMulai = null;
+    let tempFotoWajahTiba = null;
+    let tempFotoDokumenTiba = null;
+    let tempTandaTanganPenerima = null;
+    let tempFotoWajahSelesai = null;
 
     // Set Default Tanggal to Today
     const today = new Date().toISOString().split('T')[0];
@@ -672,12 +701,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let cameraStream = null;
 
-    function openInAppCamera(onCaptureCallback, fallbackInput) {
+    function openInAppCamera(onCaptureCallback, fallbackInput, facingMode = "environment") {
         // Fallback: If MediaDevices or getUserMedia is not supported
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showToast("Kamera langsung tidak didukung peramban ini. Membuka pemilih file.", "warning");
             if (fallbackInput) fallbackInput.click();
             return;
+        }
+
+        // Show/Hide Face Scan Overlay
+        if (facingMode === "user") {
+            if (faceScanOverlay) faceScanOverlay.classList.remove('hidden');
+        } else {
+            if (faceScanOverlay) faceScanOverlay.classList.add('hidden');
         }
 
         // Reset & Show Modal
@@ -692,10 +728,10 @@ document.addEventListener('DOMContentLoaded', () => {
             cameraStream = null;
         }
 
-        // Camera constraints (default to environment/rear camera)
+        // Camera constraints (default to environment/rear camera, user for selfie)
         const constraints = {
             video: {
-                facingMode: "environment",
+                facingMode: facingMode,
                 width: { ideal: 640 },
                 height: { ideal: 480 }
             },
@@ -715,6 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => {
                 console.error("Camera access error:", err);
                 cameraModal.classList.add('hidden');
+                if (faceScanOverlay) faceScanOverlay.classList.add('hidden');
                 showToast("Akses kamera ditolak/gagal. Membuka pemilih file bawaan.", "warning");
                 if (fallbackInput) fallbackInput.click();
             });
@@ -745,6 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cameraStream = null;
             }
             cameraModal.classList.add('hidden');
+            if (faceScanOverlay) faceScanOverlay.classList.add('hidden');
 
             // Pass capture back to parent callback
             onCaptureCallback(dataUrl);
@@ -757,6 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cameraStream = null;
             }
             cameraModal.classList.add('hidden');
+            if (faceScanOverlay) faceScanOverlay.classList.add('hidden');
         };
     }
 
@@ -844,6 +883,168 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    // Handle Face Verification: Wajah Mulai (Selfie)
+    btnFotoWajahMulai.addEventListener('click', () => {
+        openInAppCamera((capturedBase64) => {
+            showToast("Memproses selfie wajah...", "info");
+            compressBase64Image(capturedBase64, (compressedBase64) => {
+                tempFotoWajahMulai = compressedBase64;
+                previewWajahMulai.innerHTML = `<img src="${compressedBase64}" alt="Selfie Mulai"><span class="photo-badge" style="background:#10b981;">Terverifikasi</span>`;
+                showToast("Verifikasi wajah mulai berhasil direkam!", "success");
+            });
+        }, fileWajahMulaiInput, "user");
+    });
+    fileWajahMulaiInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            showToast("Memproses selfie wajah...", "info");
+            compressImage(e.target.files[0], (base64Str) => {
+                tempFotoWajahMulai = base64Str;
+                previewWajahMulai.innerHTML = `<img src="${base64Str}" alt="Selfie Mulai"><span class="photo-badge" style="background:#10b981;">Terverifikasi</span>`;
+                showToast("Verifikasi wajah mulai berhasil direkam!", "success");
+            });
+        }
+    });
+
+    // Handle Face Verification: Wajah Tiba (Selfie)
+    btnFotoWajahTiba.addEventListener('click', () => {
+        openInAppCamera((capturedBase64) => {
+            showToast("Memproses selfie wajah...", "info");
+            compressBase64Image(capturedBase64, (compressedBase64) => {
+                tempFotoWajahTiba = compressedBase64;
+                previewWajahTiba.innerHTML = `<img src="${compressedBase64}" alt="Selfie Tiba"><span class="photo-badge" style="background:#10b981;">Terverifikasi</span>`;
+                showToast("Verifikasi wajah tiba berhasil direkam!", "success");
+            });
+        }, fileWajahTibaInput, "user");
+    });
+    fileWajahTibaInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            showToast("Memproses selfie wajah...", "info");
+            compressImage(e.target.files[0], (base64Str) => {
+                tempFotoWajahTiba = base64Str;
+                previewWajahTiba.innerHTML = `<img src="${base64Str}" alt="Selfie Tiba"><span class="photo-badge" style="background:#10b981;">Terverifikasi</span>`;
+                showToast("Verifikasi wajah tiba berhasil direkam!", "success");
+            });
+        }
+    });
+
+    // Handle Bukti Foto Serah Terima Dokumen/Barang
+    btnFotoDokumenTiba.addEventListener('click', () => {
+        openInAppCamera((capturedBase64) => {
+            showToast("Memproses foto dokumen...", "info");
+            compressBase64Image(capturedBase64, (compressedBase64) => {
+                tempFotoDokumenTiba = compressedBase64;
+                previewDokumenTiba.innerHTML = `<img src="${compressedBase64}" alt="Foto Dokumen"><span class="photo-badge">Tersimpan</span>`;
+                showToast("Foto serah terima dokumen berhasil direkam!", "success");
+            });
+        }, fileDokumenTibaInput, "environment");
+    });
+    fileDokumenTibaInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            showToast("Memproses foto dokumen...", "info");
+            compressImage(e.target.files[0], (base64Str) => {
+                tempFotoDokumenTiba = base64Str;
+                previewDokumenTiba.innerHTML = `<img src="${base64Str}" alt="Foto Dokumen"><span class="photo-badge">Tersimpan</span>`;
+                showToast("Foto serah terima dokumen berhasil direkam!", "success");
+            });
+        }
+    });
+
+    // Handle Face Verification: Wajah Selesai (Selfie)
+    btnFotoWajahSelesai.addEventListener('click', () => {
+        openInAppCamera((capturedBase64) => {
+            showToast("Memproses selfie wajah...", "info");
+            compressBase64Image(capturedBase64, (compressedBase64) => {
+                tempFotoWajahSelesai = compressedBase64;
+                previewWajahSelesai.innerHTML = `<img src="${compressedBase64}" alt="Selfie Selesai"><span class="photo-badge" style="background:#10b981;">Terverifikasi</span>`;
+                showToast("Verifikasi wajah akhir berhasil direkam!", "success");
+            });
+        }, fileWajahSelesaiInput, "user");
+    });
+    fileWajahSelesaiInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            showToast("Memproses selfie wajah...", "info");
+            compressImage(e.target.files[0], (base64Str) => {
+                tempFotoWajahSelesai = base64Str;
+                previewWajahSelesai.innerHTML = `<img src="${base64Str}" alt="Selfie Selesai"><span class="photo-badge" style="background:#10b981;">Terverifikasi</span>`;
+                showToast("Verifikasi wajah akhir berhasil direkam!", "success");
+            });
+        }
+    });
+
+    // Signature Pad logic
+    let isDrawing = false;
+    let sigCtx = null;
+
+    if (signatureCanvas) {
+        sigCtx = signatureCanvas.getContext('2d');
+        
+        // Match canvas layout size
+        function resizeCanvas() {
+            signatureCanvas.width = signatureCanvas.clientWidth;
+            signatureCanvas.height = signatureCanvas.clientHeight;
+            
+            // Set pen style
+            sigCtx.strokeStyle = '#60a5fa'; // Blue pen
+            sigCtx.lineWidth = 3;
+            sigCtx.lineCap = 'round';
+            sigCtx.lineJoin = 'round';
+        }
+        
+        // Delayed resize to ensure layout is ready
+        setTimeout(resizeCanvas, 500);
+        window.addEventListener('resize', resizeCanvas);
+
+        // Drawing helper
+        function getCoords(e) {
+            const rect = signatureCanvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const pos = getCoords(e);
+            sigCtx.beginPath();
+            sigCtx.moveTo(pos.x, pos.y);
+            // Don't prevent default on mouse to allow proper handling, only touch
+            if (e.touches) e.preventDefault();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const pos = getCoords(e);
+            sigCtx.lineTo(pos.x, pos.y);
+            sigCtx.stroke();
+            if (e.touches) e.preventDefault();
+        }
+
+        function stopDrawing() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            // Save as base64 in temp variable
+            tempTandaTanganPenerima = signatureCanvas.toDataURL('image/png');
+        }
+
+        signatureCanvas.addEventListener('mousedown', startDrawing);
+        signatureCanvas.addEventListener('mousemove', draw);
+        signatureCanvas.addEventListener('mouseup', stopDrawing);
+        signatureCanvas.addEventListener('mouseleave', stopDrawing);
+
+        signatureCanvas.addEventListener('touchstart', startDrawing, { passive: false });
+        signatureCanvas.addEventListener('touchmove', draw, { passive: false });
+        signatureCanvas.addEventListener('touchend', stopDrawing);
+
+        btnClearSignature.addEventListener('click', () => {
+            sigCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+            tempTandaTanganPenerima = null;
+            showToast("Tanda tangan dibersihkan.", "info");
+        });
+    }
 
     // Handle AMT photo select & compression
     btnFotoAmt.addEventListener('click', () => {
@@ -989,6 +1190,8 @@ document.addEventListener('DOMContentLoaded', () => {
             inputTanggal.value = today;
             previewTBBM.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
             tempFotoTBBM = null;
+            previewWajahMulai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
+            tempFotoWajahMulai = null;
             
             startGpsCoords.innerText = "Belum dideteksi (Klik tombol Mulai untuk merekam)";
             startGpsBox.className = "gps-info-box warning hidden";
@@ -1011,6 +1214,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 inputOdoTiba.value = '';
                 previewTiba.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
                 tempFotoTiba = null;
+                previewWajahTiba.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
+                previewDokumenTiba.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
+                tempFotoWajahTiba = null;
+                tempFotoDokumenTiba = null;
+                tempTandaTanganPenerima = null;
+                if (signatureCanvas) {
+                    const sigCtx = signatureCanvas.getContext('2d');
+                    sigCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+                }
                 
                 arriveGpsCoords.innerText = "Belum dideteksi (Klik tombol Tiba untuk merekam)";
                 arriveGpsBox.className = "gps-info-box warning hidden";
@@ -1036,6 +1248,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 tempFotoTol = null;
                 previewOwnuse.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
                 previewTol.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
+                previewWajahSelesai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
+                tempFotoWajahSelesai = null;
                 
                 endGpsCoords.innerText = "Belum dideteksi (Klik Selesaikan untuk merekam)";
                 endGpsBox.className = "gps-info-box warning hidden";
@@ -1061,6 +1275,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!tempFotoTBBM) {
             showToast("Harap ambil Foto saat di TBBM!", "error");
+            return;
+        }
+
+        if (!tempFotoWajahMulai) {
+            showToast("Harap lakukan Verifikasi Wajah Driver (Selfie) terlebih dahulu!", "error");
             return;
         }
         
@@ -1100,6 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tujuan: inputTujuan.value,
                 odoAwal: parseFloat(inputOdoAwal.value),
                 fotoTBBM: tempFotoTBBM,
+                fotoWajahMulai: tempFotoWajahMulai,
                 gpsStart: gps,
                 deviceStart: getDeviceMetadata(),
                 startTime: new Date().toISOString()
@@ -1137,6 +1357,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (!tempFotoWajahTiba) {
+            showToast("Harap lakukan Verifikasi Wajah Driver (Selfie) di tujuan terlebih dahulu!", "error");
+            return;
+        }
+
+        if (!tempFotoDokumenTiba) {
+            showToast("Harap ambil Foto Bukti Serah Terima Dokumen/Barang terlebih dahulu!", "error");
+            return;
+        }
+
+        if (!tempTandaTanganPenerima) {
+            showToast("Harap minta Tanda Tangan Penerima Barang terlebih dahulu!", "error");
+            return;
+        }
+
         const btnArrive = document.getElementById('btnArriveTrip');
         btnArrive.disabled = true;
         btnArrive.innerText = "Memproses...";
@@ -1152,6 +1387,9 @@ document.addEventListener('DOMContentLoaded', () => {
             activeTrip.step = 3;
             activeTrip.odoTiba = odoTibaVal;
             activeTrip.fotoTiba = tempFotoTiba;
+            activeTrip.fotoWajahTiba = tempFotoWajahTiba;
+            activeTrip.fotoDokumenTiba = tempFotoDokumenTiba;
+            activeTrip.tandaTanganPenerima = tempTandaTanganPenerima;
             activeTrip.gpsArrive = gps;
             activeTrip.deviceArrive = getDeviceMetadata();
             activeTrip.arriveTime = new Date().toISOString();
@@ -1180,6 +1418,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const odoAkhirVal = parseFloat(inputOdoAkhir.value);
         if (isNaN(odoAkhirVal) || odoAkhirVal < activeTrip.odoTiba) {
             showToast(`Odometer akhir tidak boleh kurang dari Odo Tiba (${activeTrip.odoTiba} km)!`, "error");
+            return;
+        }
+
+        if (!tempFotoWajahSelesai) {
+            showToast("Harap lakukan Verifikasi Wajah Driver (Selfie) akhir terlebih dahulu!", "error");
             return;
         }
 
@@ -1222,6 +1465,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ownuse: isNaN(ownuseVal) ? 0 : ownuseVal,
                 fotoOwnuse: tempFotoOwnuse,
                 fotoTol: tempFotoTol,
+                fotoWajahSelesai: tempFotoWajahSelesai,
                 gpsEnd: gps,
                 deviceEnd: getDeviceMetadata(),
                 endTime: new Date().toISOString(),
@@ -1253,6 +1497,11 @@ document.addEventListener('DOMContentLoaded', () => {
             inputOwnuseQty.value = '';
             tempFotoOwnuse = null;
             tempFotoTol = null;
+            tempFotoWajahMulai = null;
+            tempFotoWajahTiba = null;
+            tempFotoDokumenTiba = null;
+            tempTandaTanganPenerima = null;
+            tempFotoWajahSelesai = null;
             
             setTimeout(() => {
                 renderAppView();
@@ -1532,7 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
  
             <!-- Bukti Foto -->
             <div class="detail-sec">
-                <div class="detail-sec-title">Bukti Dokumentasi Foto</div>
+                <div class="detail-sec-title">Bukti Dokumentasi Foto & Verifikasi</div>
                 <div class="detail-photos-row">
                     <div class="photo-card">
                         <span>Foto TBBM</span>
@@ -1540,12 +1789,52 @@ document.addEventListener('DOMContentLoaded', () => {
                             <img src="${trip.fotoTBBM}" alt="Foto TBBM" onclick="window.open(this.src)">
                         </div>
                     </div>
+                    ${trip.fotoWajahMulai ? `
+                    <div class="photo-card">
+                        <span>Selfie Mulai (Driver)</span>
+                        <div class="photo-frame">
+                            <img src="${trip.fotoWajahMulai}" alt="Selfie Mulai" onclick="window.open(this.src)">
+                        </div>
+                    </div>
+                    ` : ''}
                     <div class="photo-card">
                         <span>Foto Tiba</span>
                         <div class="photo-frame">
                             <img src="${trip.fotoTiba}" alt="Foto Tiba" onclick="window.open(this.src)">
                         </div>
                     </div>
+                    ${trip.fotoWajahTiba ? `
+                    <div class="photo-card">
+                        <span>Selfie Tiba (Driver)</span>
+                        <div class="photo-frame">
+                            <img src="${trip.fotoWajahTiba}" alt="Selfie Tiba" onclick="window.open(this.src)">
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${trip.fotoDokumenTiba ? `
+                    <div class="photo-card">
+                        <span>Foto Serah Terima</span>
+                        <div class="photo-frame">
+                            <img src="${trip.fotoDokumenTiba}" alt="Foto Serah Terima" onclick="window.open(this.src)">
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${trip.tandaTanganPenerima ? `
+                    <div class="photo-card">
+                        <span>Tanda Tangan Penerima</span>
+                        <div class="photo-frame" style="background: rgba(255,255,255,0.08);">
+                            <img src="${trip.tandaTanganPenerima}" alt="Tanda Tangan" onclick="window.open(this.src)" style="object-fit: contain;">
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${trip.fotoWajahSelesai ? `
+                    <div class="photo-card">
+                        <span>Selfie Selesai (Driver)</span>
+                        <div class="photo-frame">
+                            <img src="${trip.fotoWajahSelesai}" alt="Selfie Selesai" onclick="window.open(this.src)">
+                        </div>
+                    </div>
+                    ` : ''}
                     ${trip.fotoOwnuse ? `
                     <div class="photo-card">
                         <span>Struk BBM Ownuse</span>
@@ -2137,6 +2426,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 deviceStart: { os: "Android (Xiaomi Redmi Note 13)", browser: "Chrome", userAgent: "Mozilla/5.0 (Linux; Android 10; Redmi Note 13)" },
                 deviceArrive: { os: "Android (Xiaomi Redmi Note 13)", browser: "Chrome", userAgent: "Mozilla/5.0 (Linux; Android 10; Redmi Note 13)" },
                 deviceEnd: { os: "Android (Xiaomi Redmi Note 13)", browser: "Chrome", userAgent: "Mozilla/5.0 (Linux; Android 10; Redmi Note 13)" },
+                fotoWajahMulai: createMockSvgImage("Selfie Mulai - " + trip.namaAMT1),
+                fotoWajahTiba: createMockSvgImage("Selfie Tiba - " + trip.namaAMT1),
+                fotoDokumenTiba: createMockSvgImage("Surat Jalan - " + trip.noSO),
+                tandaTanganPenerima: createMockSvgImage("Tanda Tangan Penerima - " + trip.kota),
+                fotoWajahSelesai: createMockSvgImage("Selfie Selesai - " + trip.namaAMT1),
                 uangMakan,
                 uangRitase,
                 totalRupiah

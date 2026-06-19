@@ -178,6 +178,23 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Verifikasi Wajah Mulai -->
+                            <div class="form-group full-width" style="border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 8px;">
+                                <label>Verifikasi Wajah Driver (Selfie) <span class="required">*</span></label>
+                                <div class="photo-capture-container">
+                                    <input type="file" id="fotoWajahMulaiInput" accept="image/*" capture="user" class="hidden-file-input">
+                                    <button type="button" class="btn btn-secondary btn-photo" id="btnFotoWajahMulai">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                        </svg>
+                                        Ambil Selfie Wajah (Real-time)
+                                    </button>
+                                    <div class="photo-preview-box" id="previewWajahMulai" style="height: 140px;">
+                                        <div class="preview-placeholder">Selfie belum diambil</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Lokasi GPS Indikator -->
@@ -258,6 +275,51 @@
                                         <div class="preview-placeholder">Foto belum diambil</div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Verifikasi Wajah Tiba (Selfie) -->
+                            <div class="form-group full-width" style="border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 8px;">
+                                <label>Verifikasi Wajah Driver di Tujuan (Selfie) <span class="required">*</span></label>
+                                <div class="photo-capture-container">
+                                    <input type="file" id="fotoWajahTibaInput" accept="image/*" capture="user" class="hidden-file-input">
+                                    <button type="button" class="btn btn-secondary btn-photo" id="btnFotoWajahTiba">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                        </svg>
+                                        Ambil Selfie Wajah (Real-time)
+                                    </button>
+                                    <div class="photo-preview-box" id="previewWajahTiba" style="height: 140px;">
+                                        <div class="preview-placeholder">Selfie belum diambil</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bukti Foto Serah Terima Dokumen/Barang -->
+                            <div class="form-group">
+                                <label>Foto Bukti Serah Terima Dokumen/Barang <span class="required">*</span></label>
+                                <div class="photo-capture-container">
+                                    <input type="file" id="fotoDokumenTibaInput" accept="image/*" capture="environment" class="hidden-file-input">
+                                    <button type="button" class="btn btn-secondary btn-photo" id="btnFotoDokumenTiba" style="padding: 12px 10px; font-size: 13px;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+                                        </svg>
+                                        Ambil Foto Surat Jalan (Real-time)
+                                    </button>
+                                    <div class="photo-preview-box" id="previewDokumenTiba" style="height: 120px;">
+                                        <div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tanda Tangan Penerima -->
+                            <div class="form-group">
+                                <label>Tanda Tangan Penerima Barang <span class="required">*</span></label>
+                                <div class="signature-pad-container">
+                                    <canvas id="signatureCanvas"></canvas>
+                                    <button type="button" class="btn-clear-sig" id="btnClearSignature">Bersihkan</button>
+                                </div>
+                                <span class="input-hint">Gunakan jari / stylus untuk menandatangani.</span>
                             </div>
                         </div>
 
@@ -372,6 +434,23 @@
                                     <div class="photo-preview-box" id="previewTol" style="height: 120px;">
                                         <div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Verifikasi Wajah Selesai (Selfie) -->
+                        <div class="form-group full-width" style="border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 12px; margin-bottom: 12px;">
+                            <label>Verifikasi Wajah Driver Akhir (Selfie) <span class="required">*</span></label>
+                            <div class="photo-capture-container">
+                                <input type="file" id="fotoWajahSelesaiInput" accept="image/*" capture="user" class="hidden-file-input">
+                                <button type="button" class="btn btn-secondary btn-photo" id="btnFotoWajahSelesai">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                    </svg>
+                                    Ambil Selfie Wajah (Real-time)
+                                </button>
+                                <div class="photo-preview-box" id="previewWajahSelesai" style="height: 140px;">
+                                    <div class="preview-placeholder">Selfie belum diambil</div>
                                 </div>
                             </div>
                         </div>
@@ -757,6 +836,16 @@
             <div class="modal-body" style="padding: 0; background: #000; flex-grow: 1; display: flex; align-items: center; justify-content: center; position: relative;">
                 <video id="cameraVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
                 <canvas id="cameraCanvas" style="display: none;"></canvas>
+                
+                <!-- Face Scanning Overlay -->
+                <div id="faceScanOverlay" class="hidden" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; z-index: 5;">
+                    <div style="width: 220px; height: 280px; border-radius: 50%; border: 2px dashed #10b981; box-shadow: 0 0 0 9999px rgba(7, 11, 19, 0.65); position: relative; display: flex; align-items: center; justify-content: center;">
+                        <!-- Scanning line -->
+                        <div style="position: absolute; width: 100%; height: 3px; background: linear-gradient(90deg, transparent, #10b981, transparent); animation: scanLine 2.5s infinite ease-in-out; top: 0;"></div>
+                        <!-- Instruction text inside overlay -->
+                        <span style="color: #10b981; font-size: 11px; background: rgba(7, 11, 19, 0.85); padding: 4px 10px; border-radius: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 140px;">Posisikan Wajah</span>
+                    </div>
+                </div>
                 
                 <!-- Camera Controls Overlay -->
                 <div style="position: absolute; bottom: 20px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 24px; pointer-events: none;">
