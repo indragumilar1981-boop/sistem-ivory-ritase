@@ -913,6 +913,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Device Metadata Service ---
+    function getDeviceMetadata() {
+        const ua = navigator.userAgent;
+        let os = "Unknown OS";
+        let browser = "Unknown Browser";
+
+        // Simple OS detection
+        if (/windows/i.test(ua)) os = "Windows";
+        else if (/android/i.test(ua)) os = "Android";
+        else if (/ipad|iphone|ipod/i.test(ua)) os = "iOS";
+        else if (/macintosh/i.test(ua)) os = "macOS";
+        else if (/linux/i.test(ua)) os = "Linux";
+
+        // Simple Browser detection
+        if (/chrome|crios/i.test(ua) && !/edge|edg/i.test(ua) && !/opr/i.test(ua)) browser = "Chrome";
+        else if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) browser = "Safari";
+        else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
+        else if (/edge|edg/i.test(ua)) browser = "Edge";
+        else if (/opr/i.test(ua)) browser = "Opera";
+        
+        // Mobile device model hint if available
+        let model = "";
+        if (os === "Android") {
+            const match = ua.match(/Android\s+([^\s;]+);\s+([^;)]+)/);
+            if (match && match[2]) {
+                model = ` (${match[2].trim()})`;
+            }
+        }
+        
+        return {
+            os: os + model,
+            browser: browser,
+            userAgent: ua
+        };
+    }
+
     // --- Render View States based on Active Trip ---
     function renderAppView() {
         // Reload from localStorage to ensure we have the latest data if updated in another tab/window
@@ -1051,6 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 odoAwal: parseFloat(inputOdoAwal.value),
                 fotoTBBM: tempFotoTBBM,
                 gpsStart: gps,
+                deviceStart: getDeviceMetadata(),
                 startTime: new Date().toISOString()
             };
             
@@ -1102,6 +1139,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeTrip.odoTiba = odoTibaVal;
             activeTrip.fotoTiba = tempFotoTiba;
             activeTrip.gpsArrive = gps;
+            activeTrip.deviceArrive = getDeviceMetadata();
             activeTrip.arriveTime = new Date().toISOString();
             
             localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeTrip));
@@ -1160,6 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fotoOwnuse: tempFotoOwnuse,
                 fotoTol: tempFotoTol,
                 gpsEnd: gps,
+                deviceEnd: getDeviceMetadata(),
                 endTime: new Date().toISOString(),
                 // Calculations
                 jarakPergi: activeTrip.odoTiba - activeTrip.odoAwal,
@@ -1438,6 +1477,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
 
+            <!-- Device Details (Hidden from Driver, Admin can click Title 5x to show) -->
+            <div class="detail-sec hidden" id="modalDeviceSection">
+                <div class="detail-sec-title">Informasi Perangkat (Device Info)</div>
+                <div class="gps-detail-row">
+                    <div class="gps-detail-item">
+                        <span class="gps-lbl">Perangkat Mulai (TBBM):</span>
+                        <div class="gps-val-group">
+                            <span class="gps-coords-text">${trip.deviceStart ? `${trip.deviceStart.os} (${trip.deviceStart.browser})` : '-'}</span>
+                            ${trip.deviceStart && trip.deviceStart.userAgent ? `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">User-Agent: ${trip.deviceStart.userAgent}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="gps-detail-item">
+                        <span class="gps-lbl">Perangkat Tiba:</span>
+                        <div class="gps-val-group">
+                            <span class="gps-coords-text">${trip.deviceArrive ? `${trip.deviceArrive.os} (${trip.deviceArrive.browser})` : '-'}</span>
+                            ${trip.deviceArrive && trip.deviceArrive.userAgent ? `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">User-Agent: ${trip.deviceArrive.userAgent}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="gps-detail-item">
+                        <span class="gps-lbl">Perangkat Selesai:</span>
+                        <div class="gps-val-group">
+                            <span class="gps-coords-text">${trip.deviceEnd ? `${trip.deviceEnd.os} (${trip.deviceEnd.browser})` : '-'}</span>
+                            ${trip.deviceEnd && trip.deviceEnd.userAgent ? `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">User-Agent: ${trip.deviceEnd.userAgent}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+ 
             <!-- Bukti Foto -->
             <div class="detail-sec">
                 <div class="detail-sec-title">Bukti Dokumentasi Foto</div>
@@ -1483,6 +1550,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 gpsSection.classList.add('hidden');
             }
         }
+
+        const deviceSection = document.getElementById('modalDeviceSection');
+        if (deviceSection) {
+            if (currentMode === 'admin') {
+                deviceSection.classList.remove('hidden');
+            } else {
+                deviceSection.classList.add('hidden');
+            }
+        }
         
         detailsModal.classList.remove('hidden');
     }
@@ -1497,8 +1573,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const gpsSection = document.getElementById('modalGpsSection');
             if (gpsSection) {
                 gpsSection.classList.toggle('hidden');
-                showToast("Mode Admin: Data GPS ditampilkan", "info");
             }
+            const deviceSection = document.getElementById('modalDeviceSection');
+            if (deviceSection) {
+                deviceSection.classList.toggle('hidden');
+            }
+            showToast("Mode Admin: Data GPS & Perangkat ditampilkan", "info");
             secretClickCount = 0; // reset
         }
     });
@@ -1529,6 +1609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       "Rasio KM/Liter,Uang Makan (Rp),Uang Ritase (Rp),Total Rupiah (Rp)," +
                       "Ownuse (Liter),Struk BBM Ownuse,Struk TOL," +
                       "GPS TBBM Lat,GPS TBBM Lng,GPS Tiba Lat,GPS Tiba Lng,GPS Akhir Lat,GPS Akhir Lng," +
+                      "Device Mulai,Device Tiba,Device Selesai," +
                       "Waktu Mulai,Waktu Tiba,Waktu Selesai\n";
 
         // Rows CSV
@@ -1568,6 +1649,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 trip.gpsArrive.lng,
                 trip.gpsEnd.lat,
                 trip.gpsEnd.lng,
+                trip.deviceStart ? `"${trip.deviceStart.os} (${trip.deviceStart.browser})"` : '"-"',
+                trip.deviceArrive ? `"${trip.deviceArrive.os} (${trip.deviceArrive.browser})"` : '"-"',
+                trip.deviceEnd ? `"${trip.deviceEnd.os} (${trip.deviceEnd.browser})"` : '"-"',
                 trip.startTime,
                 trip.arriveTime,
                 trip.endTime
@@ -2022,6 +2106,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalRupiah = uangMakan + uangRitase;
             return {
                 ...trip,
+                deviceStart: { os: "Android (Xiaomi Redmi Note 13)", browser: "Chrome", userAgent: "Mozilla/5.0 (Linux; Android 10; Redmi Note 13)" },
+                deviceArrive: { os: "Android (Xiaomi Redmi Note 13)", browser: "Chrome", userAgent: "Mozilla/5.0 (Linux; Android 10; Redmi Note 13)" },
+                deviceEnd: { os: "Android (Xiaomi Redmi Note 13)", browser: "Chrome", userAgent: "Mozilla/5.0 (Linux; Android 10; Redmi Note 13)" },
                 uangMakan,
                 uangRitase,
                 totalRupiah
