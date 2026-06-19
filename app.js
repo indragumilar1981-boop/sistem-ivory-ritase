@@ -445,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 list.push(docSnap.data());
             });
             isSyncing = true;
-            masterTanki = list.length > 0 ? list : DEFAULT_MASTER;
+            masterTanki = list;
             localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(masterTanki));
             isSyncing = false;
             if (currentMode === 'admin') {
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 list.push(docSnap.data());
             });
             isSyncing = true;
-            masterAmt = list.length > 0 ? list : DEFAULT_AMT;
+            masterAmt = list;
             localStorage.setItem(STORAGE_KEY_AMT, JSON.stringify(masterAmt));
             isSyncing = false;
             if (currentMode === 'admin') {
