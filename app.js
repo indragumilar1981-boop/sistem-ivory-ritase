@@ -149,7 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_RATES = {
         batasKM: 60,
         uangMakan: 50000,
-        ritasePerLiter: 20
+        ritasePerLiter: 20,
+        uangMakanKota: {}
     };
     let ratesSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_RATES)) || DEFAULT_RATES;
 
@@ -251,6 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputRateBatasKM = document.getElementById('rateBatasKM');
     const inputRateUangMakan = document.getElementById('rateUangMakan');
     const inputRateRitasePerLiter = document.getElementById('rateRitasePerLiter');
+    
+    const adminCityRateForm = document.getElementById('adminCityRateForm');
+    const inputCityRateName = document.getElementById('cityRateName');
+    const inputCityRateAmount = document.getElementById('cityRateAmount');
+    const adminCityRateTbody = document.getElementById('adminCityRateTbody');
     
     const activeTripsCount = document.getElementById('activeTripsCount');
     const adminActiveTripsList = document.getElementById('adminActiveTripsList');
@@ -433,6 +439,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             isSyncing = false;
             updateFirebaseStatusBadge("Terhubung", "success");
+            if (currentMode === 'admin') {
+                inputRateBatasKM.value = ratesSettings.batasKM;
+                inputRateUangMakan.value = ratesSettings.uangMakan;
+                inputRateRitasePerLiter.value = ratesSettings.ritasePerLiter;
+                renderCityRatesTable();
+            }
         }, (err) => {
             console.error("Firestore Rates sync error:", err);
             updateFirebaseStatusBadge("Error Koneksi", "error");
@@ -1184,7 +1196,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchedTanki = masterTanki.find(t => t.nopol === activeTrip.noPolisi);
             const kapasitasMobil = activeTrip.kapasitas || (matchedTanki ? matchedTanki.kapasitas : 0);
             
-            const tripUangMakan = ratesSettings.uangMakan;
+            // Determine Uang Makan based on city
+            const destinationCity = (activeTrip.kota || "").trim().toUpperCase();
+            const cityRates = ratesSettings.uangMakanKota || {};
+            let tripUangMakan = ratesSettings.uangMakan; // default fallback
+            
+            for (const city in cityRates) {
+                if (city.trim().toUpperCase() === destinationCity) {
+                    tripUangMakan = cityRates[city];
+                    break;
+                }
+            }
+            
             const tripUangRitase = jarakTotalVal >= ratesSettings.batasKM ? (kapasitasMobil * ratesSettings.ritasePerLiter) : 0;
             const tripTotalRupiah = tripUangMakan + tripUangRitase;
 
@@ -1832,6 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Render Master Data Table
         renderMasterTable();
         renderAmtTable();
+        renderCityRatesTable();
         
         // 2. Render Active Trips
         adminActiveTripsList.innerHTML = '';
@@ -2495,6 +2519,86 @@ document.addEventListener('DOMContentLoaded', () => {
         return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
     }
 
+    // Render City Rates Table
+    function renderCityRatesTable() {
+        if (!adminCityRateTbody) return;
+        adminCityRateTbody.innerHTML = '';
+        const cityRates = ratesSettings.uangMakanKota || {};
+        const cities = Object.keys(cityRates).sort();
+        
+        if (cities.length === 0) {
+            adminCityRateTbody.innerHTML = `
+                <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 12px 8px;">
+                        Belum ada tarif spesifik kota.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        cities.forEach(city => {
+            const amount = cityRates[city];
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${city}</strong></td>
+                <td>Rp ${formatNumber(amount)}</td>
+                <td style="text-align: center;">
+                    <button class="btn-delete-city-rate" data-city="${city}" title="Hapus" style="background:transparent; border:none; color:var(--danger-color); cursor:pointer; padding:4px; display:inline-flex; border-radius:4px; transition:all 0.2s ease;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                    </button>
+                </td>
+            `;
+            adminCityRateTbody.appendChild(tr);
+        });
+        
+        // Add delete listeners
+        adminCityRateTbody.querySelectorAll('.btn-delete-city-rate').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const city = e.currentTarget.getAttribute('data-city');
+                if (confirm(`Apakah Anda yakin ingin menghapus tarif uang makan untuk kota ${city}?`)) {
+                    if (ratesSettings.uangMakanKota) {
+                        delete ratesSettings.uangMakanKota[city];
+                        localStorage.setItem(STORAGE_KEY_RATES, JSON.stringify(ratesSettings));
+                        showToast(`Tarif kota ${city} berhasil dihapus.`, "success");
+                        renderCityRatesTable();
+                    }
+                }
+            });
+        });
+    }
+
+    // Add / Update City Rate Listener
+    if (adminCityRateForm) {
+        adminCityRateForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const cityName = inputCityRateName.value.trim();
+            const amount = parseFloat(inputCityRateAmount.value);
+            
+            if (!cityName || isNaN(amount) || amount < 0) {
+                showToast("Harap isi nama kota dan nominal tarif dengan benar!", "error");
+                return;
+            }
+            
+            // Ensure ratesSettings has the uangMakanKota object
+            if (!ratesSettings.uangMakanKota) {
+                ratesSettings.uangMakanKota = {};
+            }
+            
+            ratesSettings.uangMakanKota[cityName] = amount;
+            
+            localStorage.setItem(STORAGE_KEY_RATES, JSON.stringify(ratesSettings));
+            showToast(`Tarif uang makan kota ${cityName} berhasil disimpan!`, "success");
+            
+            // Reset and refresh
+            adminCityRateForm.reset();
+            renderCityRatesTable();
+        });
+    }
+
     // Admin Rates settings form listener
     adminRatesForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -2509,6 +2613,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         ratesSettings = {
+            ...ratesSettings,
             batasKM: batasKMVal,
             uangMakan: uangMakanVal,
             ritasePerLiter: ritasePerLiterVal

@@ -517,6 +517,43 @@
                             <button type="submit" class="btn btn-primary" style="padding: 8px 14px; font-size: 13px; height: 38px;">Simpan</button>
                         </div>
                     </form>
+                    
+                    <!-- City Meal Allowances -->
+                    <div style="margin-top: 16px; border-top: 1px solid var(--glass-border); padding-top: 14px;">
+                        <h4 style="font-size: 12.5px; margin-bottom: 8px; color: var(--text-highlight); font-weight: 600;">Uang Makan Spesifik Kota</h4>
+                        
+                        <form id="adminCityRateForm" class="interactive-form" style="gap: 8px; margin-bottom: 12px;" novalidate>
+                            <div style="display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 8px; width: 100%; align-items: end;">
+                                <div class="form-group" style="gap: 4px;">
+                                    <label for="cityRateName" style="font-size: 11px;">Nama Kota Tujuan</label>
+                                    <input type="text" id="cityRateName" placeholder="e.g. Bandung" required style="padding: 8px 10px; font-size: 13px; height: 36px;">
+                                </div>
+                                <div class="form-group" style="gap: 4px;">
+                                    <label for="cityRateAmount" style="font-size: 11px;">Tarif Uang Makan</label>
+                                    <div class="input-wrapper">
+                                        <input type="number" id="cityRateAmount" placeholder="Nominal" min="0" required style="padding: 8px 10px; font-size: 13px; padding-left: 28px; height: 36px;">
+                                        <span class="unit" style="font-size: 10px; left: 8px; right: auto;">Rp</span>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-secondary" style="padding: 8px 12px; font-size: 13px; height: 36px;">Tambah/Update</button>
+                            </div>
+                        </form>
+                        
+                        <div class="master-list-table-container" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: 6px;">
+                            <table class="master-table" style="font-size: 12px; margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th>Nama Kota</th>
+                                        <th>Uang Makan</th>
+                                        <th style="width: 50px; text-align: center;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminCityRateTbody">
+                                    <!-- Dynamic rows will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Firebase Connection Status -->
