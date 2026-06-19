@@ -154,9 +154,21 @@ document.addEventListener('DOMContentLoaded', () => {
         batasKM: 60,
         uangMakan: 50000,
         ritasePerLiter: 20,
-        uangMakanKota: {}
+        uangMakanKota: {
+            "Bandung": 80000,
+            "Bogor": 25000,
+            "Cirebon": 90000
+        }
     };
     let ratesSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_RATES)) || DEFAULT_RATES;
+    if (!ratesSettings.uangMakanKota || Object.keys(ratesSettings.uangMakanKota).length === 0) {
+        ratesSettings.uangMakanKota = {
+            "Bandung": 80000,
+            "Bogor": 25000,
+            "Cirebon": 90000
+        };
+        localStorage.setItem(STORAGE_KEY_RATES, JSON.stringify(ratesSettings));
+    }
 
     // --- DOM Elements ---
     // Steps Panels
@@ -197,8 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileDokumenTibaInput = document.getElementById('fotoDokumenTibaInput');
     const btnFotoDokumenTiba = document.getElementById('btnFotoDokumenTiba');
     const previewDokumenTiba = document.getElementById('previewDokumenTiba');
-    const signatureCanvas = document.getElementById('signatureCanvas');
-    const btnClearSignature = document.getElementById('btnClearSignature');
 
     // Step 3 Face Verification Elements
     const fileWajahSelesaiInput = document.getElementById('fotoWajahSelesaiInput');
@@ -217,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const summaryTujuan = document.getElementById('summaryTujuan');
     const summaryOdoAwal = document.getElementById('summaryOdoAwal');
     const summaryStartTime = document.getElementById('summaryStartTime');
-    const inputOdoTiba = document.getElementById('odoTiba');
+    const inputOdoTiba = null; // Removed odoTiba input
     const fileTibaInput = document.getElementById('fotoTibaInput');
     const btnFotoTiba = document.getElementById('btnFotoTiba');
     const previewTiba = document.getElementById('previewTiba');
@@ -229,8 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const completeForm = document.getElementById('completeTripForm');
     const summaryLO3 = document.getElementById('summaryLO3');
     const summaryOdoAwal3 = document.getElementById('summaryOdoAwal3');
-    const summaryOdoTiba3 = document.getElementById('summaryOdoTiba3');
-    const summaryJarakPergi = document.getElementById('summaryJarakPergi');
+    const summaryOdoTiba3 = null; // Removed
+    const summaryJarakPergi = null; // Removed
     const inputOdoAkhir = document.getElementById('odoAkhir');
     const inputOwnuseQty = document.getElementById('ownuseQty');
     const fileOwnuseInput = document.getElementById('ownuseFotoInput');
@@ -251,6 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Admin Toggle Mode & Panel
     const btnModeDriver = document.getElementById('btnModeDriver');
     const btnModeAdmin = document.getElementById('btnModeAdmin');
+    const modeSwitcher = document.getElementById('modeSwitcher');
+    const appLogo = document.getElementById('appLogo');
     const subBrandText = document.getElementById('subBrandText');
     const headerStatusIndicator = document.getElementById('headerStatusIndicator');
     const adminPanel = document.getElementById('adminPanel');
@@ -456,7 +468,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        updateFirebaseStatusBadge("Menghubungkan...", "info");
+        if (!navigator.onLine) {
+            updateFirebaseStatusBadge("Offline (Lokal)", "warning");
+        } else {
+            updateFirebaseStatusBadge("Menghubungkan...", "info");
+        }
         
         // 1. Sync Rates Settings
         unsubscribeRates = onSnapshot(doc(db, "rates_settings", "default"), (docSnap) => {
@@ -469,6 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             isSyncing = false;
             updateFirebaseStatusBadge("Terhubung", "success");
+            populateKotaDropdown();
             if (currentMode === 'admin') {
                 inputRateBatasKM.value = ratesSettings.batasKM;
                 inputRateUangMakan.value = ratesSettings.uangMakan;
@@ -575,7 +592,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let tempFotoWajahMulai = null;
     let tempFotoWajahTiba = null;
     let tempFotoDokumenTiba = null;
-    let tempTandaTanganPenerima = null;
     let tempFotoWajahSelesai = null;
 
     // Set Default Tanggal to Today
@@ -976,79 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Signature Pad logic
-    let isDrawing = false;
-    let sigCtx = null;
 
-    if (signatureCanvas) {
-        sigCtx = signatureCanvas.getContext('2d');
-        
-        // Match canvas layout size
-        function resizeCanvas() {
-            signatureCanvas.width = signatureCanvas.clientWidth;
-            signatureCanvas.height = signatureCanvas.clientHeight;
-            
-            // Set pen style
-            sigCtx.strokeStyle = '#60a5fa'; // Blue pen
-            sigCtx.lineWidth = 3;
-            sigCtx.lineCap = 'round';
-            sigCtx.lineJoin = 'round';
-        }
-        
-        // Delayed resize to ensure layout is ready
-        setTimeout(resizeCanvas, 500);
-        window.addEventListener('resize', resizeCanvas);
-
-        // Drawing helper
-        function getCoords(e) {
-            const rect = signatureCanvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return {
-                x: clientX - rect.left,
-                y: clientY - rect.top
-            };
-        }
-
-        function startDrawing(e) {
-            isDrawing = true;
-            const pos = getCoords(e);
-            sigCtx.beginPath();
-            sigCtx.moveTo(pos.x, pos.y);
-            // Don't prevent default on mouse to allow proper handling, only touch
-            if (e.touches) e.preventDefault();
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            const pos = getCoords(e);
-            sigCtx.lineTo(pos.x, pos.y);
-            sigCtx.stroke();
-            if (e.touches) e.preventDefault();
-        }
-
-        function stopDrawing() {
-            if (!isDrawing) return;
-            isDrawing = false;
-            // Save as base64 in temp variable
-            tempTandaTanganPenerima = signatureCanvas.toDataURL('image/png');
-        }
-
-        signatureCanvas.addEventListener('mousedown', startDrawing);
-        signatureCanvas.addEventListener('mousemove', draw);
-        signatureCanvas.addEventListener('mouseup', stopDrawing);
-        signatureCanvas.addEventListener('mouseleave', stopDrawing);
-
-        signatureCanvas.addEventListener('touchstart', startDrawing, { passive: false });
-        signatureCanvas.addEventListener('touchmove', draw, { passive: false });
-        signatureCanvas.addEventListener('touchend', stopDrawing);
-
-        btnClearSignature.addEventListener('click', () => {
-            sigCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-            tempTandaTanganPenerima = null;
-            showToast("Tanda tangan dibersihkan.", "info");
-        });
-    }
 
     // Handle AMT photo select & compression
     btnFotoAmt.addEventListener('click', () => {
@@ -1191,6 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             startForm.reset();
             populateNopolDropdown();
             populateAmtDropdowns();
+            populateKotaDropdown();
             inputTanggal.value = today;
             previewTBBM.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
             tempFotoTBBM = null;
@@ -1215,18 +1160,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 summaryStartTime.innerText = formatTime(activeTrip.startTime);
                 
                 // Reset step 2 inputs
-                inputOdoTiba.value = '';
+                if (inputOdoTiba) inputOdoTiba.value = '';
                 previewTiba.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
                 tempFotoTiba = null;
                 previewWajahTiba.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
                 previewDokumenTiba.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
                 tempFotoWajahTiba = null;
                 tempFotoDokumenTiba = null;
-                tempTandaTanganPenerima = null;
-                if (signatureCanvas) {
-                    const sigCtx = signatureCanvas.getContext('2d');
-                    sigCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-                }
                 
                 arriveGpsCoords.innerText = "Belum dideteksi (Klik tombol Tiba untuk merekam)";
                 arriveGpsBox.className = "gps-info-box warning hidden";
@@ -1240,10 +1180,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fill summary
                 summaryLO3.innerText = `${activeTrip.noLO} / ${activeTrip.noSO}`;
                 summaryOdoAwal3.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
-                summaryOdoTiba3.innerText = `${formatNumber(activeTrip.odoTiba)} km`;
                 
-                const jarakPergiVal = activeTrip.odoTiba - activeTrip.odoAwal;
-                summaryJarakPergi.innerText = `${formatNumber(jarakPergiVal)} km`;
+                const summaryTujuan3 = document.getElementById('summaryTujuan3');
+                const summaryStartTime3 = document.getElementById('summaryStartTime3');
+                if (summaryTujuan3) summaryTujuan3.innerText = `${activeTrip.kota} - ${activeTrip.tujuan}`;
+                if (summaryStartTime3) summaryStartTime3.innerText = formatTime(activeTrip.startTime);
                 
                 // Reset step 3 inputs
                 inputOdoAkhir.value = '';
@@ -1350,11 +1291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     arriveForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const odoTibaVal = parseFloat(inputOdoTiba.value);
-        if (isNaN(odoTibaVal) || odoTibaVal < activeTrip.odoAwal) {
-            showToast(`Odometer tiba tidak boleh kurang dari Odo Awal (${activeTrip.odoAwal} km)!`, "error");
-            return;
-        }
+        const odoTibaVal = activeTrip.odoAwal; // Odometer Tiba is set to Odo Awal (removed input)
         
         if (!tempFotoTiba) {
             showToast("Harap ambil Foto saat tiba di lokasi!", "error");
@@ -1371,10 +1308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!tempTandaTanganPenerima) {
-            showToast("Harap minta Tanda Tangan Penerima Barang terlebih dahulu!", "error");
-            return;
-        }
+
 
         const btnArrive = document.getElementById('btnArriveTrip');
         btnArrive.disabled = true;
@@ -1389,11 +1323,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Update Active Trip Data
             activeTrip.step = 3;
-            activeTrip.odoTiba = odoTibaVal;
+            activeTrip.odoTiba = activeTrip.odoAwal;
             activeTrip.fotoTiba = tempFotoTiba;
             activeTrip.fotoWajahTiba = tempFotoWajahTiba;
             activeTrip.fotoDokumenTiba = tempFotoDokumenTiba;
-            activeTrip.tandaTanganPenerima = tempTandaTanganPenerima;
             activeTrip.gpsArrive = gps;
             activeTrip.deviceArrive = getDeviceMetadata();
             activeTrip.arriveTime = new Date().toISOString();
@@ -1420,8 +1353,8 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         
         const odoAkhirVal = parseFloat(inputOdoAkhir.value);
-        if (isNaN(odoAkhirVal) || odoAkhirVal < activeTrip.odoTiba) {
-            showToast(`Odometer akhir tidak boleh kurang dari Odo Tiba (${activeTrip.odoTiba} km)!`, "error");
+        if (isNaN(odoAkhirVal) || odoAkhirVal < activeTrip.odoAwal) {
+            showToast(`Odometer akhir tidak boleh kurang dari Odo Awal (${activeTrip.odoAwal} km)!`, "error");
             return;
         }
 
@@ -1474,8 +1407,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 deviceEnd: getDeviceMetadata(),
                 endTime: new Date().toISOString(),
                 // Calculations
-                jarakPergi: activeTrip.odoTiba - activeTrip.odoAwal,
-                jarakPulang: odoAkhirVal - activeTrip.odoTiba,
+                jarakPergi: jarakTotalVal / 2,
+                jarakPulang: jarakTotalVal / 2,
                 jarakTotal: jarakTotalVal,
                 ritase: 1, // 1 Ritase per trip
                 uangMakan: tripUangMakan,
@@ -1504,7 +1437,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tempFotoWajahMulai = null;
             tempFotoWajahTiba = null;
             tempFotoDokumenTiba = null;
-            tempTandaTanganPenerima = null;
             tempFotoWajahSelesai = null;
             
             setTimeout(() => {
@@ -2031,6 +1963,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             adminPanel.classList.add('hidden');
             
+            if (modeSwitcher) modeSwitcher.classList.add('hidden');
+            
             renderAppView();
         } else {
             btnModeDriver.classList.remove('active');
@@ -2041,6 +1975,8 @@ document.addEventListener('DOMContentLoaded', () => {
             formSection.classList.add('hidden');
             driverHistorySection.classList.add('hidden');
             adminPanel.classList.remove('hidden');
+            
+            if (modeSwitcher) modeSwitcher.classList.remove('hidden');
             
             // Populate rates settings inputs
             inputRateBatasKM.value = ratesSettings.batasKM;
@@ -2063,6 +1999,32 @@ document.addEventListener('DOMContentLoaded', () => {
             openPinModal();
         }
     });
+
+    // Logo Multi-click Admin Access Handler
+    let logoClickCount = 0;
+    let logoClickTimeout = null;
+    
+    if (appLogo) {
+        appLogo.addEventListener('click', () => {
+            logoClickCount++;
+            
+            clearTimeout(logoClickTimeout);
+            logoClickTimeout = setTimeout(() => {
+                logoClickCount = 0;
+            }, 3000);
+            
+            if (logoClickCount === 5) {
+                logoClickCount = 0;
+                clearTimeout(logoClickTimeout);
+                
+                if (isAdminLoggedIn) {
+                    switchMode('admin');
+                } else {
+                    openPinModal();
+                }
+            }
+        });
+    }
     
     // PIN Modal Actions
     function openPinModal() {
@@ -2131,6 +2093,7 @@ document.addEventListener('DOMContentLoaded', () => {
         masterTanki = JSON.parse(localStorage.getItem(STORAGE_KEY_MASTER)) || DEFAULT_MASTER;
         masterAmt = JSON.parse(localStorage.getItem(STORAGE_KEY_AMT)) || DEFAULT_AMT;
         ratesSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_RATES)) || DEFAULT_RATES;
+        populateKotaDropdown();
 
         const inputSyncRoomId = document.getElementById('inputSyncRoomId');
         if (inputSyncRoomId) {
@@ -2672,6 +2635,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function populateKotaDropdown() {
+        if (!inputKota) return;
+        const currentVal = inputKota.value;
+        inputKota.innerHTML = '<option value="" disabled selected>-- Pilih Kota Tujuan --</option>';
+        const cityRates = ratesSettings.uangMakanKota || {};
+        const cities = Object.keys(cityRates).sort();
+        cities.forEach(city => {
+            const opt = document.createElement('option');
+            opt.value = city;
+            opt.innerText = city;
+            inputKota.appendChild(opt);
+        });
+        if (currentVal && cities.includes(currentVal)) {
+            inputKota.value = currentVal;
+        }
+    }
+
     let editingAmtIndex = null;
 
     function renderAmtTable() {
@@ -2888,6 +2868,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             resetCityRateEditState();
                         }
                         renderCityRatesTable();
+                        populateKotaDropdown();
                     }
                 }
             });
@@ -2956,6 +2937,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reset and refresh
             resetCityRateEditState();
             renderCityRatesTable();
+            populateKotaDropdown();
         });
     }
 
@@ -3418,6 +3400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('load', handleRouting);
 
     // --- Initial Load ---
+    populateKotaDropdown();
     renderAppView();
     initFirebaseSync();
 
@@ -3429,6 +3412,7 @@ document.addEventListener('DOMContentLoaded', () => {
             masterTanki = JSON.parse(localStorage.getItem(STORAGE_KEY_MASTER)) || DEFAULT_MASTER;
             masterAmt = JSON.parse(localStorage.getItem(STORAGE_KEY_AMT)) || DEFAULT_AMT;
             ratesSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_RATES)) || DEFAULT_RATES;
+            populateKotaDropdown();
             
             if (currentMode === 'admin') {
                 renderAdminPanel();
@@ -3436,5 +3420,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderAppView();
             }
         }
+    });
+
+    // Network connectivity monitoring
+    window.addEventListener('online', () => {
+        showToast("Koneksi internet terdeteksi. Menyinkronkan data dengan Firebase...", "success");
+        if (isFirebaseConfigured && db) {
+            updateFirebaseStatusBadge("Terhubung", "success");
+        }
+    });
+    window.addEventListener('offline', () => {
+        showToast("Koneksi internet terputus. Sistem menyimpan data di lokal secara otomatis.", "warning");
+        updateFirebaseStatusBadge("Offline (Lokal)", "warning");
     });
 });
