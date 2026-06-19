@@ -882,6 +882,55 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Access Logs Block -->
+                <div class="admin-section-block" style="margin-top: 14px; margin-bottom: 0;">
+                    <div class="block-header" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <h3 style="font-size: 13px; color: var(--text-highlight); font-weight: 600; margin: 0; display: flex; align-items: center; gap: 6px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" style="width:16px; height:16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Log Akses Perangkat & Lokasi GPS
+                        </h3>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn btn-outline" id="btnRefreshAccessLogs" style="font-size: 10px; padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px; height: auto;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 12px; height: 12px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                </svg>
+                                Refresh
+                            </button>
+                            <button type="button" class="btn btn-danger-outline" id="btnClearAccessLogs" style="font-size: 10px; padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px; height: auto;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 12px; height: 12px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Hapus Log
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid var(--glass-border); overflow: hidden;">
+                        <div class="master-list-table-container" style="max-height: 250px; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px;">
+                                <thead style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--glass-border); position: sticky; top: 0; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 10px 12px; color: var(--text-highlight); font-weight: 600;">Halaman</th>
+                                        <th style="padding: 10px 12px; color: var(--text-highlight); font-weight: 600;">Waktu Akses</th>
+                                        <th style="padding: 10px 12px; color: var(--text-highlight); font-weight: 600;">Sistem Operasi / Browser</th>
+                                        <th style="padding: 10px 12px; color: var(--text-highlight); font-weight: 600;">Status GPS & Koordinat</th>
+                                        <th style="padding: 10px 12px; color: var(--text-highlight); font-weight: 600; text-align: center;">Peta</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="perfAccessLogsBox">
+                                    <tr>
+                                        <td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">
+                                            Sedang memuat data log akses...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
         </main>
     </div>

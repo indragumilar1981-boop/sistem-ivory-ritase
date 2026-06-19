@@ -9,7 +9,8 @@ import {
     addDoc, 
     onSnapshot,
     query,
-    orderBy 
+    orderBy,
+    limit
 } from "firebase/firestore";
 
 /**
@@ -24,6 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_MASTER = 'ivory_master_tanki';
     const STORAGE_KEY_RATES = 'ivory_rates_settings';
     const STORAGE_KEY_AMT = 'ivory_master_amt';
+    const STORAGE_KEY_ACCESS_LOGS = 'ivory_access_logs';
+    let hasLoggedDriverAccess = false;
+    let hasLoggedAdminAccess = false;
     
     // Helper to generate mock SVG avatar for AMT
     function createAmtMockSvg(name, role) {
@@ -2019,6 +2023,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             formSection.classList.remove('hidden');
             driverHistorySection.classList.add('hidden');
+            
+            // Log driver page access (once per session)
+            if (!hasLoggedDriverAccess) {
+                hasLoggedDriverAccess = true;
+                logAccess('Halaman Utama (Driver)');
+            }
             adminPanel.classList.add('hidden');
             
             renderAppView();
@@ -2098,6 +2108,13 @@ document.addEventListener('DOMContentLoaded', () => {
             isAdminLoggedIn = true;
             pinModal.classList.add('hidden');
             showToast("Login Admin Berhasil!", "success");
+            
+            // Log admin access (once per session)
+            if (!hasLoggedAdminAccess) {
+                hasLoggedAdminAccess = true;
+                logAccess('Admin Panel');
+            }
+            
             switchMode('admin');
         } else {
             showToast("PIN salah! PIN bawaan: 1234", "error");
@@ -2982,6 +2999,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let perfAvgDocSize = null;
     let perfTotalTrips = null;
     let perfLogBox = null;
+    let perfAccessLogsBox = null;
+    let btnRefreshAccessLogs = null;
+    let btnClearAccessLogs = null;
 
     function initPerformanceDashboardElements() {
         perfConnStatus = document.getElementById('perfConnStatus');
@@ -2998,10 +3018,15 @@ document.addEventListener('DOMContentLoaded', () => {
         perfAvgDocSize = document.getElementById('perfAvgDocSize');
         perfTotalTrips = document.getElementById('perfTotalTrips');
         perfLogBox = document.getElementById('perfLogBox');
+        perfAccessLogsBox = document.getElementById('perfAccessLogsBox');
+        btnRefreshAccessLogs = document.getElementById('btnRefreshAccessLogs');
+        btnClearAccessLogs = document.getElementById('btnClearAccessLogs');
 
         if (btnTestDbLatency) btnTestDbLatency.addEventListener('click', testDbLatency);
         if (btnTestGpsSpeed) btnTestGpsSpeed.addEventListener('click', testGpsSpeed);
         if (btnTestStorage) btnTestStorage.addEventListener('click', calculateLocalStorageSize);
+        if (btnRefreshAccessLogs) btnRefreshAccessLogs.addEventListener('click', renderAccessLogs);
+        if (btnClearAccessLogs) btnClearAccessLogs.addEventListener('click', clearAccessLogs);
     }
 
     function logPerf(msg) {
@@ -3060,6 +3085,7 @@ document.addEventListener('DOMContentLoaded', () => {
         perfAvgDocSize.innerText = `${avgDocKB} KB`;
 
         calculateLocalStorageSize();
+        renderAccessLogs();
     }
 
     function calculateLocalStorageSize() {
@@ -3145,6 +3171,203 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         btnTestGpsSpeed.disabled = false;
         btnTestGpsSpeed.innerText = "Test Kecepatan & Akurasi GPS";
+    }
+
+    // --- Access Logging System ---
+    const STORAGE_KEY_AL = STORAGE_KEY_ACCESS_LOGS;
+
+    function getDeviceDetails() {
+        const ua = navigator.userAgent;
+        let os = 'Unknown OS';
+        let browser = 'Unknown Browser';
+
+        // Detect OS
+        if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+        else if (/Windows NT 6\.3/.test(ua)) os = 'Windows 8.1';
+        else if (/Windows NT 6\.2/.test(ua)) os = 'Windows 8';
+        else if (/Windows NT 6\.1/.test(ua)) os = 'Windows 7';
+        else if (/Windows/.test(ua)) os = 'Windows';
+        else if (/Android ([\d.]+)/.test(ua)) os = `Android ${ua.match(/Android ([\d.]+)/)[1]}`;
+        else if (/iPhone OS ([\d_]+)/.test(ua)) os = `iOS ${ua.match(/iPhone OS ([\d_]+)/)[1].replace(/_/g, '.')}`;
+        else if (/iPad/.test(ua)) os = 'iPadOS';
+        else if (/Mac OS X/.test(ua)) os = 'macOS';
+        else if (/Linux/.test(ua)) os = 'Linux';
+        else if (/CrOS/.test(ua)) os = 'Chrome OS';
+
+        // Detect Browser
+        if (/Edg\//.test(ua)) browser = `Edge ${ua.match(/Edg\/([\d.]+)/)?.[1] || ''}`;
+        else if (/OPR\//.test(ua) || /Opera/.test(ua)) browser = `Opera ${ua.match(/OPR\/([\d.]+)/)?.[1] || ''}`;
+        else if (/SamsungBrowser/.test(ua)) browser = `Samsung Internet ${ua.match(/SamsungBrowser\/([\d.]+)/)?.[1] || ''}`;
+        else if (/Firefox\//.test(ua)) browser = `Firefox ${ua.match(/Firefox\/([\d.]+)/)?.[1] || ''}`;
+        else if (/Chrome\//.test(ua) && !/Edg/.test(ua)) browser = `Chrome ${ua.match(/Chrome\/([\d.]+)/)?.[1] || ''}`;
+        else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = `Safari ${ua.match(/Version\/([\d.]+)/)?.[1] || ''}`;
+        else if (/MSIE|Trident/.test(ua)) browser = 'Internet Explorer';
+
+        return { os: os.trim(), browser: browser.trim(), ua };
+    }
+
+    function getSilentGPS() {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve({ status: 'Tidak Didukung', lat: null, lng: null, acc: null });
+                return;
+            }
+            const timeoutId = setTimeout(() => {
+                resolve({ status: 'Timeout', lat: null, lng: null, acc: null });
+            }, 4000);
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    clearTimeout(timeoutId);
+                    resolve({
+                        status: 'OK',
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        acc: Math.round(pos.coords.accuracy)
+                    });
+                },
+                (err) => {
+                    clearTimeout(timeoutId);
+                    let status = 'Error';
+                    if (err.code === err.PERMISSION_DENIED) status = 'Izin Ditolak';
+                    else if (err.code === err.POSITION_UNAVAILABLE) status = 'Tidak Tersedia';
+                    else if (err.code === err.TIMEOUT) status = 'Timeout';
+                    resolve({ status, lat: null, lng: null, acc: null });
+                },
+                { enableHighAccuracy: false, timeout: 3500, maximumAge: 300000 }
+            );
+        });
+    }
+
+    async function logAccess(pageType) {
+        try {
+            const device = getDeviceDetails();
+            const gps = await getSilentGPS();
+            const logEntry = {
+                page: pageType,
+                timestamp: Date.now(),
+                os: device.os,
+                browser: device.browser,
+                ua: device.ua,
+                gpsStatus: gps.status,
+                lat: gps.lat,
+                lng: gps.lng,
+                acc: gps.acc
+            };
+
+            // Save to Firestore
+            if (isFirebaseConfigured && db) {
+                try {
+                    await addDoc(collection(db, 'access_logs'), logEntry);
+                } catch (fbErr) {
+                    console.warn('Firestore access_logs write failed, falling back to LocalStorage:', fbErr);
+                    saveAccessLogLocally(logEntry);
+                }
+            } else {
+                saveAccessLogLocally(logEntry);
+            }
+        } catch (e) {
+            console.error('logAccess error:', e);
+        }
+    }
+
+    function saveAccessLogLocally(entry) {
+        try {
+            const logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
+            logs.unshift(entry);
+            // Keep max 50 entries locally
+            if (logs.length > 50) logs.length = 50;
+            localStorage.setItem(STORAGE_KEY_AL, JSON.stringify(logs));
+        } catch (e) {
+            console.error('LocalStorage access log save error:', e);
+        }
+    }
+
+    async function renderAccessLogs() {
+        if (!perfAccessLogsBox) perfAccessLogsBox = document.getElementById('perfAccessLogsBox');
+        if (!perfAccessLogsBox) return;
+
+        perfAccessLogsBox.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">Memuat log akses...</td></tr>`;
+
+        let logs = [];
+
+        if (isFirebaseConfigured && db) {
+            try {
+                const q = query(collection(db, 'access_logs'), orderBy('timestamp', 'desc'), limit(20));
+                const snapshot = await getDocs(q);
+                snapshot.forEach(docSnap => {
+                    logs.push({ id: docSnap.id, ...docSnap.data() });
+                });
+            } catch (err) {
+                console.warn('Firestore access_logs read failed, falling back to LocalStorage:', err);
+                logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
+            }
+        } else {
+            logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
+        }
+
+        if (logs.length === 0) {
+            perfAccessLogsBox.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">Belum ada data log akses perangkat.</td></tr>`;
+            return;
+        }
+
+        perfAccessLogsBox.innerHTML = logs.map(log => {
+            const date = new Date(log.timestamp);
+            const dateStr = date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            const isDriver = log.page && log.page.toLowerCase().includes('driver');
+            const pageBadgeColor = isDriver ? '#3b82f6' : '#f59e0b';
+            const pageBadgeBg = isDriver ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)';
+
+            let gpsCell = '';
+            if (log.gpsStatus === 'OK' && log.lat !== null && log.lng !== null) {
+                gpsCell = `<span style="color: #10b981; font-weight: 600;">${log.lat.toFixed(5)}, ${log.lng.toFixed(5)}</span><br><span style="color: var(--text-muted); font-size: 9px;">Akurasi: ±${log.acc || '-'}m</span>`;
+            } else {
+                const statusColor = log.gpsStatus === 'Izin Ditolak' ? '#ef4444' : '#fbbf24';
+                gpsCell = `<span style="color: ${statusColor}; font-weight: 600;">${log.gpsStatus || 'N/A'}</span>`;
+            }
+
+            let mapCell = '';
+            if (log.gpsStatus === 'OK' && log.lat !== null && log.lng !== null) {
+                mapCell = `<a href="https://www.google.com/maps?q=${log.lat},${log.lng}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 3px; color: #60a5fa; text-decoration: none; font-weight: 600; font-size: 10px; padding: 3px 6px; background: rgba(96,165,250,0.1); border-radius: 4px; border: 1px solid rgba(96,165,250,0.2); transition: all 0.2s;" onmouseover="this.style.background='rgba(96,165,250,0.25)'" onmouseout="this.style.background='rgba(96,165,250,0.1)'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>Buka</a>`;
+            } else {
+                mapCell = `<span style="color: var(--text-muted); font-size: 10px;">-</span>`;
+            }
+
+            return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 8px 12px;"><span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; color: ${pageBadgeColor}; background: ${pageBadgeBg}; border: 1px solid ${pageBadgeColor}30;">${log.page || 'N/A'}</span></td>
+                <td style="padding: 8px 12px; color: var(--text-muted); white-space: nowrap;"><span style="color: var(--text-highlight); font-weight: 500;">${dateStr}</span><br><span style="font-size: 10px;">${timeStr}</span></td>
+                <td style="padding: 8px 12px;"><span style="color: var(--text-highlight); font-weight: 500;">${log.os || 'N/A'}</span><br><span style="color: var(--text-muted); font-size: 10px;">${log.browser || 'N/A'}</span></td>
+                <td style="padding: 8px 12px;">${gpsCell}</td>
+                <td style="padding: 8px 12px; text-align: center;">${mapCell}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function clearAccessLogs() {
+        if (!confirm('Apakah Anda yakin ingin menghapus semua log akses perangkat?')) return;
+
+        // Clear Firestore
+        if (isFirebaseConfigured && db) {
+            try {
+                const q = query(collection(db, 'access_logs'));
+                const snapshot = await getDocs(q);
+                const deletePromises = [];
+                snapshot.forEach(docSnap => {
+                    deletePromises.push(deleteDoc(doc(db, 'access_logs', docSnap.id)));
+                });
+                await Promise.all(deletePromises);
+            } catch (err) {
+                console.warn('Gagal menghapus log akses dari Firestore:', err);
+            }
+        }
+
+        // Clear LocalStorage
+        localStorage.removeItem(STORAGE_KEY_AL);
+
+        showToast('Semua log akses berhasil dihapus.', 'success');
+        renderAccessLogs();
     }
 
     function handleRouting() {
