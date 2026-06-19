@@ -3206,7 +3206,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return { os: os.trim(), browser: browser.trim(), ua };
     }
 
-    function getSilentGPS() {
+    async function getSilentGPS() {
+        // Check if GPS permission is already granted BEFORE requesting location
+        // This prevents the browser from showing a permission popup on page load
+        if (navigator.permissions) {
+            try {
+                const permStatus = await navigator.permissions.query({ name: 'geolocation' });
+                if (permStatus.state !== 'granted') {
+                    // Permission not yet granted — skip GPS silently, don't trigger popup
+                    return { status: 'Belum Diizinkan', lat: null, lng: null, acc: null };
+                }
+            } catch (e) {
+                // Permissions API not supported for geolocation in this browser, skip
+                return { status: 'Tidak Tersedia', lat: null, lng: null, acc: null };
+            }
+        }
+
+        // Permission is already granted, safe to request location silently
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
                 resolve({ status: 'Tidak Didukung', lat: null, lng: null, acc: null });
