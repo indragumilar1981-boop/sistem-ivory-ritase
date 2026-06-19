@@ -3283,28 +3283,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function renderAccessLogs() {
+    let unsubscribeAccessLogs = null;
+
+    function renderAccessLogs() {
         if (!perfAccessLogsBox) perfAccessLogsBox = document.getElementById('perfAccessLogsBox');
         if (!perfAccessLogsBox) return;
 
         perfAccessLogsBox.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">Memuat log akses...</td></tr>`;
 
-        let logs = [];
-
         if (isFirebaseConfigured && db) {
-            try {
-                const q = query(collection(db, 'access_logs'), orderBy('timestamp', 'desc'), limit(20));
-                const snapshot = await getDocs(q);
+            // Unsubscribe previous listener if exists
+            if (unsubscribeAccessLogs) {
+                unsubscribeAccessLogs();
+                unsubscribeAccessLogs = null;
+            }
+
+            const q = query(collection(db, 'access_logs'), orderBy('timestamp', 'desc'), limit(20));
+            unsubscribeAccessLogs = onSnapshot(q, (snapshot) => {
+                const logs = [];
                 snapshot.forEach(docSnap => {
                     logs.push({ id: docSnap.id, ...docSnap.data() });
                 });
-            } catch (err) {
-                console.warn('Firestore access_logs read failed, falling back to LocalStorage:', err);
-                logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
-            }
+                _renderAccessLogsFromData(logs);
+            }, (err) => {
+                console.warn('Firestore access_logs realtime listener failed, falling back to LocalStorage:', err);
+                const logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
+                _renderAccessLogsFromData(logs);
+            });
         } else {
-            logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
+            const logs = JSON.parse(localStorage.getItem(STORAGE_KEY_AL) || '[]');
+            _renderAccessLogsFromData(logs);
         }
+    }
+
+    function _renderAccessLogsFromData(logs) {
+        if (!perfAccessLogsBox) return;
 
         if (logs.length === 0) {
             perfAccessLogsBox.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">Belum ada data log akses perangkat.</td></tr>`;
@@ -3322,7 +3335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let gpsCell = '';
             if (log.gpsStatus === 'OK' && log.lat !== null && log.lng !== null) {
-                gpsCell = `<span style="color: #10b981; font-weight: 600;">${log.lat.toFixed(5)}, ${log.lng.toFixed(5)}</span><br><span style="color: var(--text-muted); font-size: 9px;">Akurasi: ±${log.acc || '-'}m</span>`;
+                gpsCell = `<span style="color: #10b981; font-weight: 600;">${log.lat.toFixed(5)}, ${log.lng.toFixed(5)}</span><br><span style="color: var(--text-muted); font-size: 9px;">Akurasi: \u00b1${log.acc || '-'}m</span>`;
             } else {
                 const statusColor = log.gpsStatus === 'Izin Ditolak' ? '#ef4444' : '#fbbf24';
                 gpsCell = `<span style="color: ${statusColor}; font-weight: 600;">${log.gpsStatus || 'N/A'}</span>`;
@@ -3347,6 +3360,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function clearAccessLogs() {
         if (!confirm('Apakah Anda yakin ingin menghapus semua log akses perangkat?')) return;
+
+        // Unsubscribe realtime listener before clearing
+        if (unsubscribeAccessLogs) {
+            unsubscribeAccessLogs();
+            unsubscribeAccessLogs = null;
+        }
 
         // Clear Firestore
         if (isFirebaseConfigured && db) {
