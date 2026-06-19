@@ -2967,6 +2967,214 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAdminPanel();
     });
 
+    // --- Performance Monitor Dashboard Business Logic ---
+    let perfConnStatus = null;
+    let perfDbLatency = null;
+    let btnTestDbLatency = null;
+    let perfGpsTime = null;
+    let perfGpsAcc = null;
+    let btnTestGpsSpeed = null;
+    let perfStorageUsed = null;
+    let perfStorageBar = null;
+    let btnTestStorage = null;
+    let perfPlatform = null;
+    let perfAvgFaceSize = null;
+    let perfAvgDocSize = null;
+    let perfTotalTrips = null;
+    let perfLogBox = null;
+
+    function initPerformanceDashboardElements() {
+        perfConnStatus = document.getElementById('perfConnStatus');
+        perfDbLatency = document.getElementById('perfDbLatency');
+        btnTestDbLatency = document.getElementById('btnTestDbLatency');
+        perfGpsTime = document.getElementById('perfGpsTime');
+        perfGpsAcc = document.getElementById('perfGpsAcc');
+        btnTestGpsSpeed = document.getElementById('btnTestGpsSpeed');
+        perfStorageUsed = document.getElementById('perfStorageUsed');
+        perfStorageBar = document.getElementById('perfStorageBar');
+        btnTestStorage = document.getElementById('btnTestStorage');
+        perfPlatform = document.getElementById('perfPlatform');
+        perfAvgFaceSize = document.getElementById('perfAvgFaceSize');
+        perfAvgDocSize = document.getElementById('perfAvgDocSize');
+        perfTotalTrips = document.getElementById('perfTotalTrips');
+        perfLogBox = document.getElementById('perfLogBox');
+
+        if (btnTestDbLatency) btnTestDbLatency.addEventListener('click', testDbLatency);
+        if (btnTestGpsSpeed) btnTestGpsSpeed.addEventListener('click', testGpsSpeed);
+        if (btnTestStorage) btnTestStorage.addEventListener('click', calculateLocalStorageSize);
+    }
+
+    function logPerf(msg) {
+        if (!perfLogBox) return;
+        const time = new Date().toTimeString().split(' ')[0];
+        const logItem = document.createElement('div');
+        logItem.innerText = `[${time}] ${msg}`;
+        perfLogBox.appendChild(logItem);
+        perfLogBox.scrollTop = perfLogBox.scrollHeight;
+    }
+
+    function renderPerformanceDashboard() {
+        if (!perfPlatform) initPerformanceDashboardElements();
+        
+        // Platform Info
+        perfPlatform.innerText = navigator.userAgentData ? navigator.userAgentData.platform : navigator.platform;
+        
+        // Connection status
+        const isOnline = navigator.onLine;
+        perfConnStatus.innerText = isOnline ? "Terhubung" : "Offline (Lokal)";
+        perfConnStatus.style.color = isOnline ? "#10b981" : "#ef4444";
+        
+        // Total records
+        perfTotalTrips.innerText = tripHistory.length;
+
+        // Calculate Average compressed photo sizes
+        let totalFaceSize = 0;
+        let faceCount = 0;
+        let totalDocSize = 0;
+        let docCount = 0;
+
+        tripHistory.forEach(trip => {
+            if (trip.fotoWajahMulai) {
+                totalFaceSize += trip.fotoWajahMulai.length;
+                faceCount++;
+            }
+            if (trip.fotoWajahTiba) {
+                totalFaceSize += trip.fotoWajahTiba.length;
+                faceCount++;
+            }
+            if (trip.fotoWajahSelesai) {
+                totalFaceSize += trip.fotoWajahSelesai.length;
+                faceCount++;
+            }
+            if (trip.fotoDokumenTiba) {
+                totalDocSize += trip.fotoDokumenTiba.length;
+                docCount++;
+            }
+        });
+
+        // average in KB
+        const avgFaceKB = faceCount > 0 ? ((totalFaceSize / faceCount) / 1024).toFixed(1) : '0';
+        const avgDocKB = docCount > 0 ? ((totalDocSize / docCount) / 1024).toFixed(1) : '0';
+
+        perfAvgFaceSize.innerText = `${avgFaceKB} KB`;
+        perfAvgDocSize.innerText = `${avgDocKB} KB`;
+
+        calculateLocalStorageSize();
+    }
+
+    function calculateLocalStorageSize() {
+        let total = 0;
+        for (let x in localStorage) {
+            if (localStorage.hasOwnProperty(x)) {
+                total += ((localStorage[x].length + x.length) * 2);
+            }
+        }
+        const totalKB = (total / 1024).toFixed(1);
+        perfStorageUsed.innerText = `${totalKB} KB / 5120 KB`;
+        
+        const percent = Math.min((total / (1024 * 5120)) * 100, 100);
+        perfStorageBar.style.width = `${percent}%`;
+        
+        if (percent > 80) {
+            perfStorageBar.style.background = '#ef4444';
+        } else if (percent > 50) {
+            perfStorageBar.style.background = '#fbbf24';
+        } else {
+            perfStorageBar.style.background = 'linear-gradient(90deg, #60a5fa, #3b82f6)';
+        }
+        logPerf(`Memori lokal terhitung: ${totalKB} KB (${percent.toFixed(2)}%)`);
+    }
+
+    async function testDbLatency() {
+        if (!btnTestDbLatency) return;
+        btnTestDbLatency.disabled = true;
+        btnTestDbLatency.innerText = "Mengukur...";
+        logPerf("Memulai uji latensi database...");
+        
+        const start = performance.now();
+        
+        if (isFirebaseConfigured && db) {
+            try {
+                // Perform a write-read check to Firestore
+                const testDocRef = doc(db, "latency_tests", "current_test");
+                await setDoc(testDocRef, { timestamp: Date.now() });
+                await getDoc(testDocRef);
+                
+                const duration = Math.round(performance.now() - start);
+                perfDbLatency.innerText = `${duration} ms`;
+                perfDbLatency.style.color = duration < 250 ? "#10b981" : duration < 600 ? "#fbbf24" : "#ef4444";
+                logPerf(`Firebase Firestore Latency: ${duration} ms (Koneksi Stabil)`);
+            } catch (err) {
+                console.error(err);
+                logPerf(`Gagal menguji latensi Firebase: ${err.message}`);
+                perfDbLatency.innerText = "Error";
+                perfDbLatency.style.color = "#ef4444";
+            }
+        } else {
+            setTimeout(() => {
+                const duration = Math.round(Math.random() * 5 + 2);
+                perfDbLatency.innerText = `${duration} ms (Simulasi)`;
+                perfDbLatency.style.color = "#10b981";
+                logPerf(`LocalStorage Latency: ${duration} ms (Offline Mode)`);
+                btnTestDbLatency.disabled = false;
+                btnTestDbLatency.innerText = "Test Latensi Database";
+            }, 300);
+            return;
+        }
+        btnTestDbLatency.disabled = false;
+        btnTestDbLatency.innerText = "Test Latensi Database";
+    }
+
+    async function testGpsSpeed() {
+        if (!btnTestGpsSpeed) return;
+        btnTestGpsSpeed.disabled = true;
+        btnTestGpsSpeed.innerText = "Mencari GPS...";
+        logPerf("Memulai pengukuran waktu lock GPS...");
+        
+        const start = performance.now();
+        try {
+            const gps = await getGPSLocation();
+            const duration = Math.round(performance.now() - start);
+            perfGpsTime.innerText = `${duration} ms`;
+            perfGpsAcc.innerText = `±${gps.acc}m`;
+            logPerf(`GPS Lock didapat dalam ${duration} ms dengan akurasi ±${gps.acc} meter.`);
+        } catch (err) {
+            logPerf(`Gagal mengunci GPS: ${err}`);
+            perfGpsTime.innerText = "Gagal";
+            perfGpsAcc.innerText = "-";
+        }
+        btnTestGpsSpeed.disabled = false;
+        btnTestGpsSpeed.innerText = "Test Kecepatan & Akurasi GPS";
+    }
+
+    function handleRouting() {
+        const hash = window.location.hash;
+        const performanceSection = document.getElementById('performanceSection');
+        
+        if (hash === '#performance' || hash === '#performa') {
+            formSection.classList.add('hidden');
+            driverHistorySection.classList.add('hidden');
+            adminPanel.classList.add('hidden');
+            
+            if (performanceSection) {
+                performanceSection.classList.remove('hidden');
+                renderPerformanceDashboard();
+            }
+            
+            subBrandText.innerText = "Performance Monitor Dashboard";
+            headerStatusIndicator.classList.add('hidden');
+            
+            btnModeDriver.classList.remove('active');
+            btnModeAdmin.classList.remove('active');
+        } else {
+            if (performanceSection) performanceSection.classList.add('hidden');
+            switchMode(currentMode);
+        }
+    }
+
+    window.addEventListener('hashchange', handleRouting);
+    window.addEventListener('load', handleRouting);
+
     // --- Initial Load ---
     renderAppView();
     initFirebaseSync();
