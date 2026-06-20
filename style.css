@@ -273,6 +273,7 @@ label {
 }
 
 input[type="text"],
+input[type="tel"],
 input[type="number"],
 input[type="date"],
 select,
@@ -291,6 +292,7 @@ textarea {
 }
 
 input[type="text"]:focus,
+input[type="tel"]:focus,
 input[type="number"]:focus,
 input[type="date"]:focus,
 select:focus,
@@ -1430,6 +1432,72 @@ input::placeholder {
     display: block;
 }
 
+/* --- AMT Status Badges --- */
+.amt-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+
+.amt-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+/* Online (Green) */
+.amt-status-online {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.amt-status-dot.online {
+    background: #34d399;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+    animation: statusPulseGreen 2s infinite ease-in-out;
+}
+
+/* Working (Orange) */
+.amt-status-working {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.amt-status-dot.working {
+    background: #fbbf24;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+    animation: statusPulseOrange 1.5s infinite ease-in-out;
+}
+
+/* Offline (Gray) */
+.amt-status-offline {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+    border: 1px solid rgba(107, 114, 128, 0.15);
+}
+.amt-status-dot.offline {
+    background: #6b7280;
+    opacity: 0.6;
+}
+
+@keyframes statusPulseGreen {
+    0%, 100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.8); }
+}
+@keyframes statusPulseOrange {
+    0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.8); }
+}
+
 /* ==========================================================================
    HELPER UTILITIES
    ========================================================================== */
@@ -1507,4 +1575,10 @@ input::placeholder {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+@keyframes scanAnimation {
+    0% { top: 0%; }
+    50% { top: 97%; }
+    100% { top: 0%; }
 }

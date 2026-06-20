@@ -51,153 +51,235 @@
             <section class="card glass-card" id="formSection">
                 <!-- Step 1: Start Trip -->
                 <div class="trip-step" id="step1" data-step="1">
-                    <div class="step-header">
-                        <div class="badge">Langkah 1 dari 3</div>
-                        <h2>Mulai Perjalanan (TBBM)</h2>
-                        <p class="step-desc">Isi informasi pengiriman dan ambil koordinat awal di TBBM.</p>
+                    <!-- Login Container -->
+                    <div id="driverLoginContainer" class="interactive-form">
+                        <div class="step-header" style="margin-bottom: 16px;">
+                            <div class="badge" style="background: rgba(59,130,246,0.15); color:#60a5fa; border:none; padding:4px 10px;">Login Pengemudi</div>
+                            <h2>Verifikasi Driver</h2>
+                            <p class="step-desc">Silakan masuk menggunakan nomor telepon atau pemindaian wajah.</p>
+                        </div>
+                        
+                        <!-- Login Switcher Tabs -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
+                            <button type="button" class="btn btn-outline" id="btnTabLoginPhone" style="flex: 1; padding: 8px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.08); border-color: #3b82f6;">No. Telepon</button>
+                            <button type="button" class="btn btn-outline" id="btnTabLoginFace" style="flex: 1; padding: 8px 10px; font-size: 12px; font-weight: 600;">Verifikasi Wajah</button>
+                        </div>
+
+                        <!-- Phone Login Tab -->
+                        <div id="loginPhoneTab">
+                            <form id="phoneLoginForm" class="interactive-form" style="gap: 12px;" novalidate>
+                                <div class="form-group">
+                                    <label for="loginPhoneInput" style="font-size: 12px;">Nomor Telepon Driver</label>
+                                    <input type="tel" id="loginPhoneInput" placeholder="Contoh: 081234567890" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block" style="height: 42px; margin-top: 8px;">Masuk</button>
+                            </form>
+                        </div>
+
+                        <!-- Face Login Tab -->
+                        <div id="loginFaceTab" class="hidden">
+                            <div style="display: flex; flex-direction: column; gap: 12px; align-items: stretch; position: relative;">
+                                <div class="form-group">
+                                    <label for="loginFaceSelect" style="font-size: 12px;">Pilih Driver (Simulasi)</label>
+                                    <select id="loginFaceSelect">
+                                        <option value="" disabled selected>-- Pilih Driver --</option>
+                                    </select>
+                                </div>
+                                <div id="faceScanBox" class="photo-preview-box" style="height: 180px; width: 100%; border-color: rgba(255,255,255,0.1); position: relative;">
+                                    <div class="preview-placeholder">Kamera belum diaktifkan</div>
+                                    <!-- Scanning overlay visual effect -->
+                                    <div id="faceScanOverlayBar" class="hidden" style="position: absolute; left: 0; width: 100%; height: 4px; background: #3b82f6; box-shadow: 0 0 12px #3b82f6; animation: scanAnimation 2s infinite ease-in-out; pointer-events: none;"></div>
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-block" id="btnStartFaceScan" style="height: 42px;">Aktifkan Kamera & Pindai</button>
+                            </div>
+                        </div>
                     </div>
 
-                    <form id="startTripForm" class="interactive-form" novalidate>
-                        <div class="form-grid">
-                            <!-- Tanggal Pengiriman -->
-                            <div class="form-group">
-                                <label for="tanggal">Tanggal Pengiriman <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <input type="date" id="tanggal" required>
+                    <!-- Driver Dashboard Container -->
+                    <div id="driverDashboardContainer" class="hidden">
+                        <!-- Profile Header -->
+                        <div class="driver-profile-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div id="driverHeaderFotoWrapper" style="width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 1px solid var(--glass-border); flex-shrink: 0; background: rgba(0,0,0,0.3);">
+                                    <img id="driverHeaderFoto" src="" alt="Foto Driver" style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                                <div>
+                                    <div style="font-size: 10px; color: var(--text-muted);">Supir Aktif</div>
+                                    <div id="driverHeaderName" style="font-weight: 700; font-size: 14px; color: #fff;">-</div>
                                 </div>
                             </div>
+                            <button type="button" class="btn btn-danger-outline" id="btnDriverLogout" style="padding: 6px 14px; font-size: 11px; height: auto;">Logout</button>
+                        </div>
 
-                            <!-- No Polisi -->
-                            <div class="form-group">
-                                <label for="noPolisi">No Polisi Kendaraan <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <select id="noPolisi" required>
-                                        <option value="" disabled selected>-- Pilih No Polisi MT --</option>
-                                    </select>
-                                </div>
-                                <span class="input-hint" id="nopolCapacityHint">Pilih kendaraan untuk melihat kapasitas.</span>
+                        <!-- Active Trip Alert Indicator -->
+                        <div id="driverActiveTripIndicator" class="hidden" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.20); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 12.5px;">
+                            <div style="color: var(--success-color); font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                <span class="pulse-dot active"></span> Anda memiliki perjalanan aktif!
                             </div>
+                            <span style="color: var(--text-muted);">Silakan selesaikan perjalanan Anda di langkah yang muncul di bawah.</span>
+                        </div>
 
-                            <!-- Nama AMT 1 -->
-                            <div class="form-group">
-                                <label for="namaAMT1">Nama AMT 1 <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <select id="namaAMT1" required>
-                                        <option value="" disabled selected>-- Pilih AMT 1 (Supir) --</option>
-                                    </select>
-                                </div>
+                        <!-- Jobs List Section -->
+                        <div id="driverJobsListSection">
+                            <div class="section-header" style="margin-bottom: 12px; border: none; padding-bottom: 0; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="font-size: 13.5px; color: var(--text-highlight); font-weight: 600;">Daftar Tugas Masuk</h3>
+                                <span class="badge" id="driverJobsCount" style="font-size: 10px; padding: 2px 8px; text-transform: lowercase;">0 tugas</span>
                             </div>
+                            <div id="driverJobsList" style="display: flex; flex-direction: column; gap: 10px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                                <!-- Dynamic job card list will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
 
-                            <!-- Nama AMT 2 -->
-                            <div class="form-group">
-                                <label for="namaAMT2">Nama AMT 2 <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <select id="namaAMT2" required>
-                                        <option value="" disabled selected>-- Pilih AMT 2 (Kernet) --</option>
-                                    </select>
-                                </div>
-                            </div>
+                    <!-- Step Header (Visible only when starting a selected job) -->
+                    <div class="step-header hidden" id="step1FormHeader">
+                        <div class="badge">Langkah 1 dari 3</div>
+                        <h2>Mulai Perjalanan (Tugas Terpilih)</h2>
+                        <p class="step-desc">Tugas terisi otomatis. Masukkan odometer awal, ambil foto, lalu mulai perjalanan.</p>
+                    </div>
 
-                            <!-- No LO -->
-                            <div class="form-group">
-                                <label for="noLO">Nomor LO (Loading Order) <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <input type="text" id="noLO" placeholder="e.g. LO-1002394" required>
-                                </div>
-                            </div>
+                    <form id="startTripForm" class="interactive-form hidden" style="gap: 16px; margin-bottom: 20px;" novalidate>
+                        <!-- ID Tugas Hidden -->
+                        <input type="hidden" id="selectedJobId">
 
-                            <!-- No SO -->
-                            <div class="form-group">
-                                <label for="noSO">Nomor SO (Sales Order) <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <input type="text" id="noSO" placeholder="e.g. SO-2026110" required>
-                                </div>
+                        <!-- Tanggal Pengiriman -->
+                        <div class="form-group">
+                            <label for="tanggal">Tanggal Pengiriman <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="date" id="tanggal" required disabled>
                             </div>
+                        </div>
 
-                            <!-- Produk -->
-                            <div class="form-group">
-                                <label for="produk">Produk <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <select id="produk" required>
-                                        <option value="" disabled selected>-- Pilih Produk --</option>
-                                        <option value="Bio Solar">Bio Solar</option>
-                                        <option value="Dexlite">Dexlite</option>
-                                        <option value="Pertamina Dex">Pertamina Dex</option>
-                                        <option value="Pertalite">Pertalite</option>
-                                        <option value="Pertamax">Pertamax</option>
-                                        <option value="Pertamax Turbo">Pertamax Turbo</option>
-                                    </select>
-                                </div>
+                        <!-- No Polisi -->
+                        <div class="form-group">
+                            <label for="noPolisi">No Polisi Kendaraan <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <select id="noPolisi" required>
+                                    <option value="" disabled selected>-- Pilih No Polisi MT --</option>
+                                </select>
                             </div>
+                            <span class="input-hint" id="nopolCapacityHint">Pilih kendaraan untuk melihat kapasitas.</span>
+                        </div>
 
-                            <!-- Quantity -->
-                            <div class="form-group">
-                                <label for="quantity">Quantity (Liter) <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <input type="number" id="quantity" min="1" placeholder="e.g. 8000" required>
-                                    <span class="unit">L</span>
-                                </div>
+                        <!-- Nama AMT 1 -->
+                        <div class="form-group">
+                            <label for="namaAMT1">Nama AMT 1 <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <select id="namaAMT1" required disabled>
+                                    <option value="" disabled selected>-- Pilih AMT 1 (Supir) --</option>
+                                </select>
                             </div>
+                        </div>
 
-                            <!-- Kota -->
-                            <div class="form-group">
-                                <label for="kota">Kota Tujuan <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <select id="kota" required>
-                                        <option value="" disabled selected>-- Pilih Kota Tujuan --</option>
-                                    </select>
-                                </div>
+                        <!-- Nama AMT 2 -->
+                        <div class="form-group">
+                            <label for="namaAMT2">Nama AMT 2 <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <select id="namaAMT2" required>
+                                    <option value="" disabled selected>-- Pilih AMT 2 (Kernet) --</option>
+                                </select>
                             </div>
+                        </div>
 
-                            <!-- Tujuan Pengiriman -->
-                            <div class="form-group full-width">
-                                <label for="tujuan">Tujuan Pengiriman / Alamat Lengkap <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <textarea id="tujuan" placeholder="Nama SPBU / Konsumen & Alamat Lengkap" rows="2" required></textarea>
-                                </div>
+                        <!-- No LO -->
+                        <div class="form-group">
+                            <label for="noLO">Nomor LO (Loading Order) <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="text" id="noLO" placeholder="e.g. LO-1002394" required disabled>
                             </div>
+                        </div>
 
-                            <!-- Odometer Awal -->
-                            <div class="form-group">
-                                <label for="odoAwal">Odometer Awal <span class="required">*</span></label>
-                                <div class="input-wrapper">
-                                    <input type="number" id="odoAwal" min="0" placeholder="e.g. 120450" required>
-                                    <span class="unit">km</span>
-                                </div>
+                        <!-- No SO -->
+                        <div class="form-group">
+                            <label for="noSO">Nomor SO (Sales Order) <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="text" id="noSO" placeholder="e.g. SO-2026110" required disabled>
                             </div>
+                        </div>
 
-                            <!-- Foto TBBM -->
-                            <div class="form-group full-width">
-                                <label>Foto di TBBM <span class="required">*</span></label>
-                                <div class="photo-capture-container">
-                                    <input type="file" id="fotoTBBMInput" accept="image/*" capture="environment" class="hidden-file-input">
-                                    <button type="button" class="btn btn-secondary btn-photo" id="btnFotoTBBM">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-                                        </svg>
-                                        Ambil Foto Kamera (Real-time)
-                                    </button>
-                                    <div class="photo-preview-box" id="previewTBBM">
-                                        <div class="preview-placeholder">Foto belum diambil</div>
-                                    </div>
+                        <!-- Produk -->
+                        <div class="form-group">
+                            <label for="produk">Produk <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <select id="produk" required disabled>
+                                    <option value="" disabled selected>-- Pilih Produk --</option>
+                                    <option value="Bio Solar">Bio Solar</option>
+                                    <option value="Dexlite">Dexlite</option>
+                                    <option value="Pertamina Dex">Pertamina Dex</option>
+                                    <option value="Pertalite">Pertalite</option>
+                                    <option value="Pertamax">Pertamax</option>
+                                    <option value="Pertamax Turbo">Pertamax Turbo</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Quantity -->
+                        <div class="form-group">
+                            <label for="quantity">Quantity (Liter) <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="quantity" min="1" placeholder="e.g. 8000" required disabled>
+                                <span class="unit">L</span>
+                            </div>
+                        </div>
+
+                        <!-- Kota -->
+                        <div class="form-group">
+                            <label for="kota">Kota Tujuan <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <select id="kota" required disabled>
+                                    <option value="" disabled selected>-- Pilih Kota Tujuan --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tujuan Pengiriman -->
+                        <div class="form-group">
+                            <label for="tujuan">Tujuan Pengiriman / Alamat Lengkap <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <textarea id="tujuan" placeholder="Nama SPBU / Konsumen & Alamat Lengkap" rows="2" required disabled></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Odometer Awal -->
+                        <div class="form-group">
+                            <label for="odoAwal">Odometer Awal <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="odoAwal" min="0" placeholder="e.g. 120450" required>
+                                <span class="unit">km</span>
+                            </div>
+                        </div>
+
+                        <!-- Foto TBBM -->
+                        <div class="form-group">
+                            <label>Foto di TBBM <span class="required">*</span></label>
+                            <div class="photo-capture-container">
+                                <input type="file" id="fotoTBBMInput" accept="image/*" capture="environment" class="hidden-file-input">
+                                <button type="button" class="btn btn-secondary btn-photo" id="btnFotoTBBM">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+                                    </svg>
+                                    Ambil Foto Kamera (Real-time)
+                                </button>
+                                <div class="photo-preview-box" id="previewTBBM">
+                                    <div class="preview-placeholder">Foto belum diambil</div>
                                 </div>
                             </div>
-                            
-                            <!-- Verifikasi Wajah Mulai -->
-                            <div class="form-group full-width" style="border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 8px;">
-                                <label>Verifikasi Wajah Driver (Selfie) <span class="required">*</span></label>
-                                <div class="photo-capture-container">
-                                    <input type="file" id="fotoWajahMulaiInput" accept="image/*" capture="user" class="hidden-file-input">
-                                    <button type="button" class="btn btn-secondary btn-photo" id="btnFotoWajahMulai">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                                        </svg>
-                                        Ambil Selfie Wajah (Real-time)
-                                    </button>
-                                    <div class="photo-preview-box" id="previewWajahMulai" style="height: 140px;">
-                                        <div class="preview-placeholder">Selfie belum diambil</div>
-                                    </div>
+                        </div>
+                        
+                        <!-- Verifikasi Wajah Mulai -->
+                        <div class="form-group" style="border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 8px;">
+                            <label>Verifikasi Wajah Driver (Selfie) <span class="required">*</span></label>
+                            <div class="photo-capture-container">
+                                <input type="file" id="fotoWajahMulaiInput" accept="image/*" capture="user" class="hidden-file-input">
+                                <button type="button" class="btn btn-secondary btn-photo" id="btnFotoWajahMulai">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-btn">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                    </svg>
+                                    Ambil Selfie Wajah (Real-time)
+                                </button>
+                                <div class="photo-preview-box" id="previewWajahMulai" style="height: 140px;">
+                                    <div class="preview-placeholder">Selfie belum diambil</div>
                                 </div>
                             </div>
                         </div>
@@ -214,8 +296,11 @@
                             </div>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary btn-block" id="btnStartTrip">
+                        <div class="form-actions-split" id="startTripActions" style="margin-top: 15px;">
+                            <button type="button" class="btn btn-secondary" id="btnCancelJobSelection">
+                                Batal
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="btnStartTrip">
                                 Mulai Perjalanan
                             </button>
                         </div>
@@ -552,6 +637,87 @@
                     </div>
                 </div>
 
+                <!-- 1b. Buat Penugasan Ritase (Job Assignment) -->
+                <div class="admin-section-block">
+                    <div class="block-header">
+                        <h3>Buat Penugasan Ritase Baru</h3>
+                    </div>
+                    <form id="adminAssignJobForm" class="interactive-form" style="gap: 16px; margin-bottom: 12px;" novalidate>
+                        <div class="form-group">
+                            <label for="jobNoLO">No. LO <span class="required">*</span></label>
+                            <input type="text" id="jobNoLO" placeholder="Contoh: LO1002394" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="jobNoSO">No. SO <span class="required">*</span></label>
+                            <input type="text" id="jobNoSO" placeholder="Contoh: SO2026110" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="jobProduk">Produk <span class="required">*</span></label>
+                            <select id="jobProduk" required>
+                                <option value="" disabled selected>-- Pilih Produk --</option>
+                                <option value="Bio Solar">Bio Solar</option>
+                                <option value="Dexlite">Dexlite</option>
+                                <option value="Pertamina Dex">Pertamina Dex</option>
+                                <option value="Pertalite">Pertalite</option>
+                                <option value="Pertamax">Pertamax</option>
+                                <option value="Pertamax Turbo">Pertamax Turbo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="jobQuantity">Volume <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="jobQuantity" placeholder="e.g. 8000" min="1" required>
+                                <span class="unit">L</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="jobKota">Kota Tujuan <span class="required">*</span></label>
+                            <select id="jobKota" required>
+                                <option value="" disabled selected>-- Pilih Kota --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="jobTujuan">Alamat Detail Tujuan <span class="required">*</span></label>
+                            <textarea id="jobTujuan" placeholder="Nama SPBU / TBBM / Industri & Alamat" rows="2" required></textarea>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                            <button type="submit" class="btn btn-primary" id="btnSubmitJob" style="min-width: 140px;">Kirim Tugas</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 1c. Monitoring Status Tugas (Job Monitor) -->
+                <div class="admin-section-block">
+                    <div class="block-header-split" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3>Daftar Tugas & Status</h3>
+                        <div>
+                            <select id="filterJobStatus" style="padding: 6px 12px; font-size: 12px; width: 140px; height: 32px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff;">
+                                <option value="all">Semua Status</option>
+                                <option value="pending">Belum Mulai</option>
+                                <option value="active">Sedang Jalan</option>
+                                <option value="completed">Selesai</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="master-list-table-container" style="max-height: 220px; overflow-y: auto;">
+                        <table class="master-table">
+                            <thead>
+                                <tr>
+                                    <th>Driver (AMT 1)</th>
+                                    <th>No. LO / SO</th>
+                                    <th>Nopol</th>
+                                    <th>Tujuan</th>
+                                    <th style="width: 120px; text-align: center;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminJobMonitorTbody">
+                                <!-- Dynamic rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- 2. Konfigurasi Tarif & Biaya -->
                 <div class="admin-section-block">
                     <div class="block-header">
@@ -674,36 +840,38 @@
                     </div>
                     
                     <!-- Form Tambah/Edit AMT -->
-                    <form id="adminAmtForm" class="interactive-form" style="gap: 10px; margin-bottom: 12px;" novalidate>
-                        <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.5fr auto; gap: 8px; width: 100%; align-items: end;">
-                            <div class="form-group" style="gap: 4px;">
-                                <label for="amtNama" style="font-size: 11px;">Nama Lengkap</label>
-                                <input type="text" id="amtNama" placeholder="Nama AMT" required style="padding: 8px 10px; font-size: 13px;">
-                            </div>
-                            <div class="form-group" style="gap: 4px;">
-                                <label for="amtJabatan" style="font-size: 11px;">Jabatan</label>
-                                <select id="amtJabatan" required style="padding: 8px 10px; font-size: 13px;">
-                                    <option value="" disabled selected>-- Pilih --</option>
-                                    <option value="AMT 1">AMT 1 (Supir)</option>
-                                    <option value="AMT 2">AMT 2 (Kernet)</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="gap: 4px;">
-                                <label style="font-size: 11px;">Foto Profil</label>
-                                <div style="display: flex; gap: 6px; align-items: center;">
-                                    <input type="file" id="amtFotoInput" accept="image/*" capture="environment" class="hidden-file-input">
-                                    <button type="button" class="btn btn-secondary" id="btnFotoAmt" style="padding: 8px 10px; font-size: 11px; height: 38px; flex: 1;">
-                                        Ambil Foto
-                                    </button>
-                                    <div id="previewAmtFoto" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                                        <span style="font-size: 9px; color: var(--text-muted);">Foto</span>
-                                    </div>
+                    <form id="adminAmtForm" class="interactive-form" style="gap: 16px; margin-bottom: 20px;" novalidate>
+                        <div class="form-group">
+                            <label for="amtNama">Nama Lengkap</label>
+                            <input type="text" id="amtNama" placeholder="Nama Lengkap" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="amtJabatan">Jabatan</label>
+                            <select id="amtJabatan" required>
+                                <option value="" disabled selected>-- Pilih Jabatan --</option>
+                                <option value="AMT 1">AMT 1 (Supir)</option>
+                                <option value="AMT 2">AMT 2 (Kernet)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="amtNoTlp">No. TLP Driver</label>
+                            <input type="tel" id="amtNoTlp" placeholder="Contoh: 08123456789" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Foto Profil</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="file" id="amtFotoInput" accept="image/*" capture="environment" class="hidden-file-input">
+                                <button type="button" class="btn btn-secondary" id="btnFotoAmt" style="flex: 1; height: 42px; font-size: 13px;">
+                                    Ambil Foto
+                                </button>
+                                <div id="previewAmtFoto" style="width: 42px; height: 42px; border-radius: 50%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                    <span style="font-size: 9px; color: var(--text-muted);">Foto</span>
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 4px; height: 38px;">
-                                <button type="submit" class="btn btn-primary" id="btnSubmitAmt" style="padding: 8px 12px; font-size: 12px; height: 38px;">Tambah</button>
-                                <button type="button" class="btn btn-secondary hidden" id="btnCancelAmtEdit" style="padding: 8px 12px; font-size: 12px; height: 38px;">Batal</button>
-                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+                            <button type="button" class="btn btn-secondary hidden" id="btnCancelAmtEdit" style="min-width: 100px;">Batal</button>
+                            <button type="submit" class="btn btn-primary" id="btnSubmitAmt" style="min-width: 120px;">Tambah</button>
                         </div>
                     </form>
 
@@ -715,6 +883,8 @@
                                     <th style="width: 60px;">Foto</th>
                                     <th>Nama AMT</th>
                                     <th>Jabatan</th>
+                                    <th>No. TLP Driver</th>
+                                    <th style="width: 110px; text-align: center;">Status</th>
                                     <th style="width: 50px; text-align: center;">Aksi</th>
                                 </tr>
                             </thead>

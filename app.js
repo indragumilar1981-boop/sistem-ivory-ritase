@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_RATES = 'ivory_rates_settings';
     const STORAGE_KEY_AMT = 'ivory_master_amt';
     const STORAGE_KEY_ACCESS_LOGS = 'ivory_access_logs';
+    const STORAGE_KEY_JOBS = 'ivory_job_assignments';
+    const STORAGE_KEY_ACTIVE_USER = 'ivory_active_user';
     let hasLoggedDriverAccess = false;
     let hasLoggedAdminAccess = false;
     
@@ -51,17 +53,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     const DEFAULT_AMT = [
-        { name: "AHMAD FAUZI", jabatan: "AMT 1", foto: createAmtMockSvg("Ahmad Fauzi", "AMT 1") },
-        { name: "SLAMET SANTOSO", jabatan: "AMT 2", foto: createAmtMockSvg("Slamet Santoso", "AMT 2") },
-        { name: "RUDI HERMAWAN", jabatan: "AMT 1", foto: createAmtMockSvg("Rudi Hermawan", "AMT 1") },
-        { name: "JOKO WIDODO", jabatan: "AMT 2", foto: createAmtMockSvg("Joko Widodo", "AMT 2") },
-        { name: "DEDI SUSANTO", jabatan: "AMT 1", foto: createAmtMockSvg("Dedi Susanto", "AMT 1") },
-        { name: "ANDI WIJAYA", jabatan: "AMT 2", foto: createAmtMockSvg("Andi Wijaya", "AMT 2") }
+        { name: "AHMAD FAUZI", jabatan: "AMT 1", foto: createAmtMockSvg("Ahmad Fauzi", "AMT 1"), noTlp: "081234567890" },
+        { name: "SLAMET SANTOSO", jabatan: "AMT 2", foto: createAmtMockSvg("Slamet Santoso", "AMT 2"), noTlp: "081298765432" },
+        { name: "RUDI HERMAWAN", jabatan: "AMT 1", foto: createAmtMockSvg("Rudi Hermawan", "AMT 1"), noTlp: "081345678901" },
+        { name: "JOKO WIDODO", jabatan: "AMT 2", foto: createAmtMockSvg("Joko Widodo", "AMT 2"), noTlp: "081398765432" },
+        { name: "DEDI SUSANTO", jabatan: "AMT 1", foto: createAmtMockSvg("Dedi Susanto", "AMT 1"), noTlp: "081456789012" },
+        { name: "ANDI WIJAYA", jabatan: "AMT 2", foto: createAmtMockSvg("Andi Wijaya", "AMT 2"), noTlp: "081498765432" }
     ];
     
     let activeTrip = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE)) || null;
     let tripHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || [];
     let masterTanki = JSON.parse(localStorage.getItem(STORAGE_KEY_MASTER));
+    let jobAssignments = JSON.parse(localStorage.getItem(STORAGE_KEY_JOBS)) || [];
+    let currentDriver = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE_USER)) || null;
 
     // --- Cloud Sync Configuration ---
     const SYNC_BUCKET = "ivory_sync_bucket_2026";
@@ -321,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminAmtForm = document.getElementById('adminAmtForm');
     const inputAmtNama = document.getElementById('amtNama');
     const inputAmtJabatan = document.getElementById('amtJabatan');
+    const inputAmtNoTlp = document.getElementById('amtNoTlp');
     const fileAmtFotoInput = document.getElementById('amtFotoInput');
     const btnFotoAmt = document.getElementById('btnFotoAmt');
     const previewAmtFoto = document.getElementById('previewAmtFoto');
@@ -346,12 +351,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Firestore state variables
     let firebaseActiveTrips = [];
+    let driverSessions = []; // Tracks which drivers are online
     let isSyncing = false;
     let unsubscribeRates = null;
     let unsubscribeMasterTanki = null;
     let unsubscribeMasterAmt = null;
     let unsubscribeActiveTrips = null;
     let unsubscribeHistory = null;
+    let unsubscribeJobs = null;
+    let unsubscribeDriverSessions = null;
 
     function updateFirebaseStatusBadge(text, status) {
         if (!firebaseStatusBadge) return;
@@ -424,6 +432,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (key === STORAGE_KEY_RATES) {
                 await setDoc(doc(db, "rates_settings", "default"), parsedVal);
+            } else if (key === STORAGE_KEY_JOBS) {
+                if (parsedVal.length === 0) {
+                    const querySnap = await getDocs(collection(db, "job_assignments"));
+                    querySnap.forEach(async (docSnap) => {
+                        await deleteDoc(doc(db, "job_assignments", docSnap.id));
+                    });
+                } else {
+                    for (let job of parsedVal) {
+                        if (job.id) {
+                            await setDoc(doc(db, "job_assignments", job.id), job);
+                        }
+                    }
+                }
             }
         } catch (err) {
             console.error("Firestore push item error:", err);
@@ -445,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const originalSetItem = localStorage.setItem;
     localStorage.setItem = function(key, value) {
         originalSetItem.apply(this, arguments);
-        if (!isSyncing && (key === STORAGE_KEY_ACTIVE || key === STORAGE_KEY_HISTORY || key === STORAGE_KEY_MASTER || key === STORAGE_KEY_AMT || key === STORAGE_KEY_RATES)) {
+        if (!isSyncing && (key === STORAGE_KEY_ACTIVE || key === STORAGE_KEY_HISTORY || key === STORAGE_KEY_MASTER || key === STORAGE_KEY_AMT || key === STORAGE_KEY_RATES || key === STORAGE_KEY_JOBS)) {
             if (isFirebaseConfigured && db) {
                 pushItemToFirestore(key, value);
             }
@@ -509,6 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isSyncing = false;
             if (currentMode === 'admin') {
                 renderMasterTable();
+                populateAssignJobDropdowns();
             } else {
                 populateNopolDropdown();
             }
@@ -526,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isSyncing = false;
             if (currentMode === 'admin') {
                 renderAmtTable();
+                populateAssignJobDropdowns();
             } else {
                 populateAmtDropdowns();
             }
@@ -578,6 +601,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderAppView();
             }
         });
+
+        // 6. Sync Job Assignments
+        unsubscribeJobs = onSnapshot(collection(db, "job_assignments"), (querySnap) => {
+            const list = [];
+            querySnap.forEach(docSnap => {
+                list.push(docSnap.data());
+            });
+            
+            // Detect if a new job is added globally to trigger notification
+            const prevCount = (jobAssignments || []).filter(j => j.status === 'pending').length;
+            
+            isSyncing = true;
+            jobAssignments = list;
+            localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
+            isSyncing = false;
+            
+            if (currentMode === 'admin') {
+                renderJobMonitorTable();
+            } else {
+                if (currentDriver) {
+                    checkNewJobNotification(prevCount);
+                    renderDriverDashboard();
+                }
+            }
+        }, (err) => {
+            console.error("Firestore Jobs sync error:", err);
+        });
+
+        // 7. Sync Driver Sessions (Online/Offline Tracking)
+        unsubscribeDriverSessions = onSnapshot(collection(db, "driver_sessions"), (querySnap) => {
+            const list = [];
+            querySnap.forEach(docSnap => {
+                list.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            driverSessions = list;
+            if (currentMode === 'admin') {
+                renderAmtTable();
+            }
+        }, (err) => {
+            console.error("Firestore Driver Sessions sync error:", err);
+        });
+    }
+
+    // --- Driver Session Management (Online/Offline Status) ---
+    async function pushDriverSession(driver) {
+        if (!driver) return;
+        
+        // Always update local state
+        const sessionData = {
+            driverName: driver.name,
+            jabatan: driver.jabatan,
+            loginTime: new Date().toISOString(),
+            noTlp: driver.noTlp || ''
+        };
+        const existingIdx = driverSessions.findIndex(s => s.driverName === driver.name);
+        if (existingIdx >= 0) {
+            driverSessions[existingIdx] = sessionData;
+        } else {
+            driverSessions.push(sessionData);
+        }
+        
+        // Push to Firestore if available
+        if (isFirebaseConfigured && db) {
+            try {
+                const sessionId = driver.name.replace(/\s+/g, '_');
+                await setDoc(doc(db, "driver_sessions", sessionId), sessionData);
+            } catch (err) {
+                console.error("Error pushing driver session:", err);
+            }
+        }
+    }
+
+    async function removeDriverSession(driverName) {
+        if (!driverName) return;
+        
+        // Always update local state
+        driverSessions = driverSessions.filter(s => s.driverName !== driverName);
+        
+        // Remove from Firestore if available
+        if (isFirebaseConfigured && db) {
+            try {
+                const sessionId = driverName.replace(/\s+/g, '_');
+                await deleteDoc(doc(db, "driver_sessions", sessionId));
+            } catch (err) {
+                console.error("Error removing driver session:", err);
+            }
+        }
     }
     
     // Toast
@@ -1117,33 +1227,59 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reload from localStorage to ensure we have the latest data if updated in another tab/window
         activeTrip = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE)) || null;
         tripHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || [];
+        jobAssignments = JSON.parse(localStorage.getItem(STORAGE_KEY_JOBS)) || [];
         
         // Hide all steps by default
         step1Panel.classList.add('hidden');
         step2Panel.classList.add('hidden');
         step3Panel.classList.add('hidden');
         
-        if (!activeTrip) {
-            // STEP 1: Mulai Perjalanan
+        // Enforce Driver Login first if in driver mode
+        if (currentMode === 'driver' && !currentDriver) {
             step1Panel.classList.remove('hidden');
+            document.getElementById('driverLoginContainer').classList.remove('hidden');
+            document.getElementById('driverDashboardContainer').classList.add('hidden');
+            document.getElementById('step1FormHeader').classList.add('hidden');
+            document.getElementById('startTripForm').classList.add('hidden');
+            
+            // Status Header
+            statusDot.className = 'pulse-dot idle';
+            statusText.innerText = 'Silakan Login untuk Memulai';
+            
+            renderHistoryList();
+            return;
+        }
+        
+        if (!activeTrip) {
+            // STEP 1: Dasbor Driver
+            step1Panel.classList.remove('hidden');
+            document.getElementById('driverLoginContainer').classList.add('hidden');
+            document.getElementById('driverDashboardContainer').classList.remove('hidden');
             
             // Status Header
             statusDot.className = 'pulse-dot idle';
             statusText.innerText = 'Siap Memulai Perjalanan';
             
-            // Reset fields
-            startForm.reset();
-            populateNopolDropdown();
-            populateAmtDropdowns();
-            populateKotaDropdown();
-            inputTanggal.value = today;
-            previewTBBM.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
-            tempFotoTBBM = null;
-            previewWajahMulai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
-            tempFotoWajahMulai = null;
+            const selectedJobIdVal = document.getElementById('selectedJobId').value;
+            if (selectedJobIdVal) {
+                document.getElementById('step1FormHeader').classList.remove('hidden');
+                document.getElementById('startTripForm').classList.remove('hidden');
+            } else {
+                document.getElementById('step1FormHeader').classList.add('hidden');
+                document.getElementById('startTripForm').classList.add('hidden');
+                
+                // Reset fields
+                startForm.reset();
+                previewTBBM.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
+                tempFotoTBBM = null;
+                previewWajahMulai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
+                tempFotoWajahMulai = null;
+                
+                startGpsCoords.innerText = "Belum dideteksi (Klik tombol Mulai untuk merekam)";
+                startGpsBox.className = "gps-info-box warning hidden";
+            }
             
-            startGpsCoords.innerText = "Belum dideteksi (Klik tombol Mulai untuk merekam)";
-            startGpsBox.className = "gps-info-box warning hidden";
+            renderDriverDashboard();
         } else {
             // Check active step
             if (activeTrip.step === 2) {
@@ -1248,9 +1384,12 @@ document.addEventListener('DOMContentLoaded', () => {
             startGpsCoords.innerText = `Lat: ${gps.lat.toFixed(6)}, Lng: ${gps.lng.toFixed(6)} (Akurasi: ±${gps.acc}m)`;
             startGpsBox.className = "gps-info-box success hidden";
             
+            const jobIdVal = document.getElementById('selectedJobId').value;
+
             // Store active trip data
             activeTrip = {
                 step: 2,
+                jobId: jobIdVal,
                 tanggal: inputTanggal.value,
                 noPolisi: inputNoPolisi.value.toUpperCase(),
                 kapasitas: matchedTanki ? matchedTanki.kapasitas : 0,
@@ -1271,6 +1410,26 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeTrip));
+            
+            // Mark job as active and assign to driver
+            if (jobIdVal) {
+                jobAssignments = jobAssignments.map(j => {
+                    if (j.id === jobIdVal) {
+                        return { 
+                            ...j, 
+                            status: 'active',
+                            driverName: activeTrip.namaAMT1,
+                            nopol: activeTrip.noPolisi,
+                            kernetName: activeTrip.namaAMT2
+                        };
+                    }
+                    return j;
+                });
+                localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
+            }
+            
+            // Reset selected job input
+            document.getElementById('selectedJobId').value = '';
             
             setTimeout(() => {
                 renderAppView();
@@ -1422,6 +1581,17 @@ document.addEventListener('DOMContentLoaded', () => {
             tripHistory.unshift(completedTrip); // add to top
             localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(tripHistory));
             
+            // Mark job as completed
+            if (activeTrip.jobId) {
+                jobAssignments = jobAssignments.map(j => {
+                    if (j.id === activeTrip.jobId) {
+                        return { ...j, status: 'completed' };
+                    }
+                    return j;
+                });
+                localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
+            }
+            
             // Clear active trip
             if (isFirebaseConfigured && db && activeTrip) {
                 const docId = activeTrip.noPolisi.replace(/\s+/g, '_');
@@ -1454,15 +1624,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Trip Cancel / Resets ---
+    // --- Cancel / Resets ---
     btnCancelStep2.addEventListener('click', () => {
         if (confirm("Apakah Anda yakin ingin membatalkan perjalanan aktif? Semua data trip ini akan dihapus.")) {
+            if (activeTrip.jobId) {
+                jobAssignments = jobAssignments.map(j => {
+                    if (j.id === activeTrip.jobId) {
+                        return { 
+                            ...j, 
+                            status: 'pending',
+                            driverName: '',
+                            nopol: '',
+                            kernetName: ''
+                        };
+                    }
+                    return j;
+                });
+                localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
+            }
             if (isFirebaseConfigured && db && activeTrip) {
                 const docId = activeTrip.noPolisi.replace(/\s+/g, '_');
                 deleteDoc(doc(db, "active_trips", docId));
             }
             activeTrip = null;
             localStorage.removeItem(STORAGE_KEY_ACTIVE);
+            document.getElementById('selectedJobId').value = '';
             renderAppView();
             showToast("Trip dibatalkan.", "warning");
         }
@@ -1470,12 +1656,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnCancelStep3.addEventListener('click', () => {
         if (confirm("Apakah Anda yakin ingin membatalkan perjalanan aktif? Semua data trip ini akan dihapus.")) {
+            if (activeTrip.jobId) {
+                jobAssignments = jobAssignments.map(j => {
+                    if (j.id === activeTrip.jobId) {
+                        return { 
+                            ...j, 
+                            status: 'pending',
+                            driverName: '',
+                            nopol: '',
+                            kernetName: ''
+                        };
+                    }
+                    return j;
+                });
+                localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
+            }
             if (isFirebaseConfigured && db && activeTrip) {
                 const docId = activeTrip.noPolisi.replace(/\s+/g, '_');
                 deleteDoc(doc(db, "active_trips", docId));
             }
             activeTrip = null;
             localStorage.removeItem(STORAGE_KEY_ACTIVE);
+            document.getElementById('selectedJobId').value = '';
             
             // Reset Step 3 photo/input states
             inputOwnuseQty.value = '';
@@ -1983,6 +2185,8 @@ document.addEventListener('DOMContentLoaded', () => {
             inputRateUangMakan.value = ratesSettings.uangMakan;
             inputRateRitasePerLiter.value = ratesSettings.ritasePerLiter;
             
+            populateAssignJobDropdowns();
+            renderJobMonitorTable();
             renderAdminPanel();
         }
     }
@@ -2446,11 +2650,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             
+            if (isFirebaseConfigured && db) {
+                // Delete job assignments from Firestore
+                getDocs(collection(db, "job_assignments")).then(qs => {
+                    qs.forEach(docSnap => deleteDoc(doc(db, "job_assignments", docSnap.id)));
+                });
+                // Delete driver sessions from Firestore
+                getDocs(collection(db, "driver_sessions")).then(qs => {
+                    qs.forEach(docSnap => deleteDoc(doc(db, "driver_sessions", docSnap.id)));
+                });
+            }
+            
             isSyncing = true;
             activeTrip = null;
             tripHistory = [];
+            jobAssignments = [];
+            currentDriver = null;
             localStorage.removeItem(STORAGE_KEY_ACTIVE);
             localStorage.removeItem(STORAGE_KEY_HISTORY);
+            localStorage.removeItem(STORAGE_KEY_JOBS);
+            localStorage.removeItem('ivory_active_user');
             isSyncing = false;
             
             showToast("Database berhasil dikosongkan.", "success");
@@ -2654,13 +2873,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let editingAmtIndex = null;
 
+    function getAmtStatus(amtName) {
+        // Check if driver has an active trip via Firestore (sedang bekerja)
+        const hasActiveTrip = firebaseActiveTrips.some(trip => 
+            trip.namaAMT1 === amtName || trip.namaAMT2 === amtName
+        );
+        if (hasActiveTrip) return 'working';
+
+        // Check local active trip (for offline/local mode)
+        if (activeTrip && (activeTrip.namaAMT1 === amtName || activeTrip.namaAMT2 === amtName)) {
+            return 'working';
+        }
+
+        // Check active job assignments with status 'active'
+        const hasActiveJob = jobAssignments.some(job => 
+            job.status === 'active' && job.driverName === amtName
+        );
+        if (hasActiveJob) return 'working';
+
+        // Check if driver has an active session (online)
+        const hasSession = driverSessions.some(session => session.driverName === amtName);
+        if (hasSession) return 'online';
+
+        return 'offline';
+    }
+
     function renderAmtTable() {
         adminAmtTbody.innerHTML = '';
         
         if (masterAmt.length === 0) {
             adminAmtTbody.innerHTML = `
                 <tr>
-                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px 12px;">
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px 12px;">
                         Tidak ada data Awak Mobil Tanki (AMT).
                     </td>
                 </tr>
@@ -2669,6 +2913,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         masterAmt.forEach((amt, index) => {
+            const status = getAmtStatus(amt.name);
+            let statusBadge = '';
+            if (status === 'working') {
+                statusBadge = `<span class="amt-status-badge amt-status-working"><span class="amt-status-dot working"></span>Bekerja</span>`;
+            } else if (status === 'online') {
+                statusBadge = `<span class="amt-status-badge amt-status-online"><span class="amt-status-dot online"></span>Online</span>`;
+            } else {
+                statusBadge = `<span class="amt-status-badge amt-status-offline"><span class="amt-status-dot offline"></span>Offline</span>`;
+            }
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
@@ -2676,6 +2930,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td><strong>${amt.name}</strong></td>
                 <td><span class="badge" style="background:rgba(59,130,246,0.1); color:#60a5fa; border:none; padding:2px 8px;">${amt.jabatan}</span></td>
+                <td>${amt.noTlp || '-'}</td>
+                <td style="text-align: center;">${statusBadge}</td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
                         <button class="btn-edit-amt" data-index="${index}" title="Edit" style="background:transparent; border:none; color:#3b82f6; cursor:pointer; padding:4px; display:inline-flex; border-radius:4px; transition:all 0.2s ease;">
@@ -2725,6 +2981,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 editingAmtIndex = idx;
                 inputAmtNama.value = amtToEdit.name;
                 inputAmtJabatan.value = amtToEdit.jabatan;
+                inputAmtNoTlp.value = amtToEdit.noTlp || '';
                 
                 if (amtToEdit.foto) {
                     tempFotoAmt = amtToEdit.foto;
@@ -2763,9 +3020,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const namaVal = inputAmtNama.value.trim().toUpperCase();
         const jabatanVal = inputAmtJabatan.value;
+        const noTlpVal = inputAmtNoTlp.value.trim();
         
-        if (!namaVal || !jabatanVal) {
-            showToast("Harap isi Nama dan Jabatan AMT dengan benar!", "error");
+        if (!namaVal || !jabatanVal || !noTlpVal) {
+            showToast("Harap isi Nama, Jabatan, dan No. TLP Driver dengan benar!", "error");
             return;
         }
         
@@ -2781,11 +3039,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (editingAmtIndex !== null) {
             // Update
-            masterAmt[editingAmtIndex] = { name: namaVal, jabatan: jabatanVal, foto: fotoVal };
+            masterAmt[editingAmtIndex] = { name: namaVal, jabatan: jabatanVal, foto: fotoVal, noTlp: noTlpVal };
             showToast(`Data AMT ${namaVal} berhasil diperbarui!`, "success");
         } else {
             // Create
-            masterAmt.push({ name: namaVal, jabatan: jabatanVal, foto: fotoVal });
+            masterAmt.push({ name: namaVal, jabatan: jabatanVal, foto: fotoVal, noTlp: noTlpVal });
             showToast(`Data AMT ${namaVal} berhasil ditambahkan!`, "success");
         }
         
@@ -3404,17 +3662,26 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAppView();
     initFirebaseSync();
 
+    // If a driver is already logged in (e.g., page refresh), push session to Firestore
+    if (currentDriver) {
+        pushDriverSession(currentDriver);
+    }
+
     // Tab Sync: Listen to localStorage modifications in other tabs/windows
     window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_KEY_ACTIVE || e.key === STORAGE_KEY_HISTORY || e.key === STORAGE_KEY_MASTER || e.key === STORAGE_KEY_AMT || e.key === STORAGE_KEY_RATES) {
+        if (e.key === STORAGE_KEY_ACTIVE || e.key === STORAGE_KEY_HISTORY || e.key === STORAGE_KEY_MASTER || e.key === STORAGE_KEY_AMT || e.key === STORAGE_KEY_RATES || e.key === STORAGE_KEY_JOBS || e.key === STORAGE_KEY_ACTIVE_USER) {
             activeTrip = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE)) || null;
             tripHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || [];
             masterTanki = JSON.parse(localStorage.getItem(STORAGE_KEY_MASTER)) || DEFAULT_MASTER;
             masterAmt = JSON.parse(localStorage.getItem(STORAGE_KEY_AMT)) || DEFAULT_AMT;
             ratesSettings = JSON.parse(localStorage.getItem(STORAGE_KEY_RATES)) || DEFAULT_RATES;
+            jobAssignments = JSON.parse(localStorage.getItem(STORAGE_KEY_JOBS)) || [];
+            currentDriver = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE_USER)) || null;
             populateKotaDropdown();
             
             if (currentMode === 'admin') {
+                populateAssignJobDropdowns();
+                renderJobMonitorTable();
                 renderAdminPanel();
             } else {
                 renderAppView();
@@ -3441,5 +3708,569 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then((reg) => console.log('PWA Service Worker registered:', reg.scope))
                 .catch((err) => console.warn('PWA Service Worker registration failed:', err));
         });
+    }
+
+    // --- Driver Login Feature Logics ---
+    const btnTabLoginPhone = document.getElementById('btnTabLoginPhone');
+    const btnTabLoginFace = document.getElementById('btnTabLoginFace');
+    const loginPhoneTab = document.getElementById('loginPhoneTab');
+    const loginFaceTab = document.getElementById('loginFaceTab');
+    const phoneLoginForm = document.getElementById('phoneLoginForm');
+    const loginPhoneInput = document.getElementById('loginPhoneInput');
+    const loginFaceSelect = document.getElementById('loginFaceSelect');
+    const btnStartFaceScan = document.getElementById('btnStartFaceScan');
+    const faceScanBox = document.getElementById('faceScanBox');
+    const btnDriverLogout = document.getElementById('btnDriverLogout');
+    
+    let faceScanStream = null;
+
+    if (btnTabLoginPhone) {
+        btnTabLoginPhone.addEventListener('click', () => {
+            btnTabLoginPhone.style.background = 'rgba(255,255,255,0.08)';
+            btnTabLoginPhone.style.borderColor = '#3b82f6';
+            btnTabLoginFace.style.background = 'transparent';
+            btnTabLoginFace.style.borderColor = 'transparent';
+            loginPhoneTab.classList.remove('hidden');
+            loginFaceTab.classList.add('hidden');
+            stopFaceScanStream();
+        });
+    }
+
+    if (btnTabLoginFace) {
+        btnTabLoginFace.addEventListener('click', () => {
+            btnTabLoginFace.style.background = 'rgba(255,255,255,0.08)';
+            btnTabLoginFace.style.borderColor = '#3b82f6';
+            btnTabLoginPhone.style.background = 'transparent';
+            btnTabLoginPhone.style.borderColor = 'transparent';
+            loginFaceTab.classList.remove('hidden');
+            loginPhoneTab.classList.add('hidden');
+            populateFaceLoginSelect();
+        });
+    }
+
+    function stopFaceScanStream() {
+        if (faceScanStream) {
+            faceScanStream.getTracks().forEach(track => track.stop());
+            faceScanStream = null;
+        }
+        if (faceScanBox) {
+            faceScanBox.innerHTML = `
+                <div class="preview-placeholder">Kamera belum diaktifkan</div>
+                <div id="faceScanOverlayBar" class="hidden" style="position: absolute; left: 0; width: 100%; height: 4px; background: #3b82f6; box-shadow: 0 0 12px #3b82f6; animation: scanAnimation 2s infinite ease-in-out; pointer-events: none;"></div>
+            `;
+        }
+    }
+
+    function populateFaceLoginSelect() {
+        if (!loginFaceSelect) return;
+        loginFaceSelect.innerHTML = '<option value="" disabled selected>-- Pilih Driver --</option>';
+        const drivers = masterAmt.filter(amt => amt.jabatan === 'AMT 1');
+        drivers.forEach(driver => {
+            const opt = document.createElement('option');
+            opt.value = driver.name;
+            opt.textContent = driver.name;
+            loginFaceSelect.appendChild(opt);
+        });
+    }
+
+    if (phoneLoginForm) {
+        phoneLoginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const phoneVal = loginPhoneInput.value.trim();
+            if (!phoneVal) {
+                showToast("Harap masukkan nomor telepon!", "error");
+                return;
+            }
+            const driver = masterAmt.find(amt => amt.noTlp === phoneVal && amt.jabatan === 'AMT 1');
+            if (driver) {
+                currentDriver = driver;
+                localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
+                pushDriverSession(driver);
+                showToast(`Login berhasil! Selamat datang, ${driver.name}`, "success");
+                loginPhoneInput.value = '';
+                renderAppView();
+            } else {
+                showToast("Nomor telepon tidak terdaftar sebagai AMT 1 (Supir)!", "error");
+            }
+        });
+    }
+
+    if (btnStartFaceScan) {
+        btnStartFaceScan.addEventListener('click', () => {
+            const selectedDriverName = loginFaceSelect.value;
+            if (!selectedDriverName) {
+                showToast("Harap pilih driver terlebih dahulu!", "error");
+                return;
+            }
+            
+            btnStartFaceScan.disabled = true;
+            
+            const overlay = document.getElementById('faceScanOverlayBar');
+            if (overlay) overlay.classList.remove('hidden');
+            
+            faceScanBox.innerHTML = `
+                <div class="preview-placeholder">Menginisialisasi Kamera...</div>
+                <div id="faceScanOverlayBar" style="position: absolute; left: 0; width: 100%; height: 4px; background: #3b82f6; box-shadow: 0 0 12px #3b82f6; animation: scanAnimation 2s infinite ease-in-out; pointer-events: none;"></div>
+            `;
+
+            const constraints = {
+                video: { facingMode: 'user', width: 320, height: 240 },
+                audio: false
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    faceScanStream = stream;
+                    const videoEl = document.createElement('video');
+                    videoEl.srcObject = stream;
+                    videoEl.autoplay = true;
+                    videoEl.playsInline = true;
+                    videoEl.style.width = '100%';
+                    videoEl.style.height = '100%';
+                    videoEl.style.objectFit = 'cover';
+                    videoEl.style.borderRadius = 'inherit';
+                    
+                    faceScanBox.innerHTML = '';
+                    faceScanBox.appendChild(videoEl);
+                    
+                    const overlayBar = document.createElement('div');
+                    overlayBar.id = 'faceScanOverlayBar';
+                    overlayBar.style.position = 'absolute';
+                    overlayBar.style.left = '0';
+                    overlayBar.style.width = '100%';
+                    overlayBar.style.height = '4px';
+                    overlayBar.style.background = '#3b82f6';
+                    overlayBar.style.boxShadow = '0 0 12px #3b82f6';
+                    overlayBar.style.animation = 'scanAnimation 2s infinite ease-in-out';
+                    overlayBar.style.pointerEvents = 'none';
+                    faceScanBox.appendChild(overlayBar);
+                    
+                    setTimeout(() => {
+                        stopFaceScanStream();
+                        btnStartFaceScan.disabled = false;
+                        
+                        const driver = masterAmt.find(amt => amt.name === selectedDriverName);
+                        if (driver) {
+                            currentDriver = driver;
+                            localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
+                            pushDriverSession(driver);
+                            showToast(`Verifikasi Wajah Berhasil! Selamat datang, ${driver.name}`, "success");
+                            renderAppView();
+                        } else {
+                            showToast("Driver tidak ditemukan!", "error");
+                        }
+                    }, 2500);
+                })
+                .catch(err => {
+                    console.warn("Face Scan Camera permission failed, using simulated scanning:", err);
+                    
+                    faceScanBox.innerHTML = `
+                        <div class="preview-placeholder">Memindai Wajah (Simulasi)...</div>
+                        <div id="faceScanOverlayBar" style="position: absolute; left: 0; width: 100%; height: 4px; background: #3b82f6; box-shadow: 0 0 12px #3b82f6; animation: scanAnimation 2s infinite ease-in-out; pointer-events: none;"></div>
+                    `;
+                    
+                    setTimeout(() => {
+                        stopFaceScanStream();
+                        btnStartFaceScan.disabled = false;
+                        
+                        const driver = masterAmt.find(amt => amt.name === selectedDriverName);
+                        if (driver) {
+                            currentDriver = driver;
+                            localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
+                            pushDriverSession(driver);
+                            showToast(`Verifikasi Wajah Berhasil (Simulasi)! Selamat datang, ${driver.name}`, "success");
+                            renderAppView();
+                        } else {
+                            showToast("Driver tidak ditemukan!", "error");
+                        }
+                    }, 2500);
+                });
+        });
+    }
+
+    if (btnDriverLogout) {
+        btnDriverLogout.addEventListener('click', () => {
+            if (confirm("Apakah Anda yakin ingin logout?")) {
+                const logoutDriverName = currentDriver ? currentDriver.name : null;
+                currentDriver = null;
+                localStorage.removeItem(STORAGE_KEY_ACTIVE_USER);
+                document.getElementById('selectedJobId').value = '';
+                if (logoutDriverName) removeDriverSession(logoutDriverName);
+                showToast("Berhasil logout.", "success");
+                renderAppView();
+            }
+        });
+    }
+
+    // --- Driver Dashboard and Penugasan Logics ---
+    function renderDriverDashboard() {
+        if (!currentDriver) return;
+        
+        document.getElementById('driverHeaderName').innerText = currentDriver.name;
+        const headerFotoImg = document.getElementById('driverHeaderFoto');
+        if (headerFotoImg) {
+            headerFotoImg.src = currentDriver.foto || createAmtMockSvg(currentDriver.name, "AMT 1");
+        }
+        
+        const activeTripIndicator = document.getElementById('driverActiveTripIndicator');
+        const jobsListSection = document.getElementById('driverJobsListSection');
+        
+        if (activeTrip) {
+            if (activeTripIndicator) activeTripIndicator.classList.remove('hidden');
+            if (jobsListSection) jobsListSection.classList.add('hidden');
+            return;
+        } else {
+            if (activeTripIndicator) activeTripIndicator.classList.add('hidden');
+            if (jobsListSection) jobsListSection.classList.remove('hidden');
+        }
+        
+        const pendingJobs = jobAssignments.filter(job => job.status === 'pending');
+        
+        const countSpan = document.getElementById('driverJobsCount');
+        if (countSpan) {
+            countSpan.innerText = `${pendingJobs.length} tugas`;
+        }
+        
+        const jobsListContainer = document.getElementById('driverJobsList');
+        if (!jobsListContainer) return;
+        
+        if (pendingJobs.length === 0) {
+            jobsListContainer.innerHTML = `
+                <div class="empty-state" style="padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+                    <p style="font-size: 12px; margin-bottom: 0;">Tidak ada tugas masuk untuk Anda saat ini.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        jobsListContainer.innerHTML = '';
+        pendingJobs.forEach(job => {
+            const card = document.createElement('div');
+            card.className = 'job-card';
+            card.style.cssText = `
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid var(--glass-border);
+                border-radius: 8px;
+                padding: 12px;
+                cursor: pointer;
+                transition: all 0.25s ease;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            `;
+            
+            card.addEventListener('mouseenter', () => {
+                card.style.background = 'rgba(255, 255, 255, 0.08)';
+                card.style.borderColor = '#3b82f6';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.background = 'rgba(255, 255, 255, 0.04)';
+                card.style.borderColor = 'var(--glass-border)';
+            });
+            
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; font-weight: 700; color: #60a5fa;">TUGAS: ${job.id}</span>
+                    <span style="font-size: 10px; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 2px 6px; border-radius: 4px;">Pending</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-size: 13px; font-weight: 700; color: #fff;">${job.kota}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${job.tujuan}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; margin-top: 4px;">
+                    <div><span style="color: var(--text-muted);">LO/SO:</span> <strong style="color: #fff;">${job.noLO}/${job.noSO}</strong></div>
+                    <div><span style="color: var(--text-muted);">Produk:</span> <strong style="color: #fff;">${job.produk}</strong></div>
+                    <div><span style="color: var(--text-muted);">Volume:</span> <strong style="color: #fff;">${formatNumber(job.quantity)} L</strong></div>
+                </div>
+                <button type="button" class="btn btn-primary" style="height: 30px; font-size: 11px; padding: 0 10px; margin-top: 6px; align-self: flex-end;">Pilih Tugas & Mulai</button>
+            `;
+            
+            card.addEventListener('click', () => {
+                selectJobForTrip(job);
+            });
+            
+            jobsListContainer.appendChild(card);
+        });
+    }
+
+    function selectJobForTrip(job) {
+        document.getElementById('selectedJobId').value = job.id;
+        inputTanggal.value = today;
+        
+        populateNopolDropdown();
+        populateAmtDropdowns();
+        
+        // Lock AMT 1 to currently logged in driver
+        inputNamaAMT1.innerHTML = `<option value="${currentDriver.name}">${currentDriver.name}</option>`;
+        inputNamaAMT1.value = currentDriver.name;
+        inputNamaAMT1.disabled = true;
+        
+        inputNoLO.value = job.noLO;
+        inputNoSO.value = job.noSO;
+        
+        inputProduk.innerHTML = `<option value="${job.produk}">${job.produk}</option>`;
+        inputProduk.value = job.produk;
+        
+        inputQuantity.value = job.quantity;
+        
+        inputKota.innerHTML = `<option value="${job.kota}">${job.kota}</option>`;
+        inputKota.value = job.kota;
+        
+        inputTujuan.value = job.tujuan;
+        
+        nopolCapacityHint.innerText = "Pilih kendaraan untuk melihat kapasitas.";
+        nopolCapacityHint.className = "input-hint";
+        
+        document.getElementById('step1FormHeader').classList.remove('hidden');
+        document.getElementById('startTripForm').classList.remove('hidden');
+        document.getElementById('step1FormHeader').scrollIntoView({ behavior: 'smooth' });
+        
+        showToast(`Tugas ${job.id} terpilih! Silakan lengkapi data kendaraan dan kernet.`, "success");
+    }
+
+    const btnCancelJobSelection = document.getElementById('btnCancelJobSelection');
+    if (btnCancelJobSelection) {
+        btnCancelJobSelection.addEventListener('click', () => {
+            document.getElementById('selectedJobId').value = '';
+            document.getElementById('step1FormHeader').classList.add('hidden');
+            document.getElementById('startTripForm').classList.add('hidden');
+            showToast("Pemilihan tugas dibatalkan.", "info");
+            renderAppView();
+        });
+    }
+
+    // --- Admin Assignment & Monitoring Logics ---
+    const adminAssignJobForm = document.getElementById('adminAssignJobForm');
+    const adminJobMonitorTbody = document.getElementById('adminJobMonitorTbody');
+    const filterJobStatus = document.getElementById('filterJobStatus');
+    
+    if (filterJobStatus) {
+        filterJobStatus.addEventListener('change', () => {
+            renderJobMonitorTable();
+        });
+    }
+
+    function generateJobId() {
+        let maxId = 1000;
+        jobAssignments.forEach(job => {
+            const match = job.id.match(/^JOB-(\d+)$/);
+            if (match) {
+                const val = parseInt(match[1]);
+                if (val > maxId) maxId = val;
+            }
+        });
+        return `JOB-${maxId + 1}`;
+    }
+
+    if (adminAssignJobForm) {
+        adminAssignJobForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const noLO = document.getElementById('jobNoLO').value.trim();
+            const noSO = document.getElementById('jobNoSO').value.trim();
+            const produk = document.getElementById('jobProduk').value;
+            const quantity = parseFloat(document.getElementById('jobQuantity').value);
+            const kota = document.getElementById('jobKota').value;
+            const tujuan = document.getElementById('jobTujuan').value.trim();
+            
+            if (!noLO || !noSO || !produk || isNaN(quantity) || !kota || !tujuan) {
+                showToast("Harap lengkapi semua kolom tugas wajib!", "error");
+                return;
+            }
+            
+            const newJob = {
+                id: generateJobId(),
+                noLO: noLO.toUpperCase(),
+                noSO: noSO.toUpperCase(),
+                nopol: '',
+                driverName: '',
+                kernetName: '',
+                produk: produk,
+                quantity: quantity,
+                kota: kota,
+                tujuan: tujuan,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            
+            jobAssignments.push(newJob);
+            localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
+            
+            adminAssignJobForm.reset();
+            populateAssignJobDropdowns();
+            renderJobMonitorTable();
+            showToast(`Tugas ${newJob.id} berhasil dibuat di daftar penugasan!`, "success");
+        });
+    }
+
+    function populateAssignJobDropdowns() {
+        const jobKota = document.getElementById('jobKota');
+        if (!jobKota) return;
+        
+        jobKota.innerHTML = '<option value="" disabled selected>-- Pilih Kota --</option>';
+        const cities = Object.keys(ratesSettings.uangMakanKota || {});
+        cities.forEach(city => {
+            const opt = document.createElement('option');
+            opt.value = city;
+            opt.textContent = city;
+            jobKota.appendChild(opt);
+        });
+        const defaultCities = ["Bandung", "Bogor", "Cirebon"];
+        defaultCities.forEach(city => {
+            if (!cities.includes(city)) {
+                const opt = document.createElement('option');
+                opt.value = city;
+                opt.textContent = city;
+                jobKota.appendChild(opt);
+            }
+        });
+    }
+
+    function renderJobMonitorTable() {
+        if (!adminJobMonitorTbody) return;
+        
+        const filterVal = filterJobStatus ? filterJobStatus.value : 'all';
+        let filteredJobs = jobAssignments;
+        if (filterVal !== 'all') {
+            filteredJobs = jobAssignments.filter(j => j.status === filterVal);
+        }
+        
+        filteredJobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        if (filteredJobs.length === 0) {
+            adminJobMonitorTbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                        Tidak ada data tugas ditemukan.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        adminJobMonitorTbody.innerHTML = '';
+        filteredJobs.forEach(job => {
+            let statusBadge = '';
+            if (job.status === 'pending') {
+                statusBadge = `<span class="badge" style="background: rgba(245,158,11,0.15); color: #fbbf24; border:none; text-transform:uppercase;">Belum Mulai</span>`;
+            } else if (job.status === 'active') {
+                statusBadge = `<span class="badge pulse-dot active" style="background: rgba(59,130,246,0.15); color: #60a5fa; border:none; text-transform:uppercase; display:inline-flex; align-items:center; gap:4px;"><span class="pulse-dot active" style="margin: 0; width:6px; height:6px;"></span>Sedang Jalan</span>`;
+            } else if (job.status === 'completed') {
+                statusBadge = `<span class="badge" style="background: rgba(16,185,129,0.15); color: #34d399; border:none; text-transform:uppercase;">Selesai</span>`;
+            }
+            
+            const driverDisplay = job.driverName || `<span style="color: var(--text-muted); font-style: italic;">Belum Diambil</span>`;
+            const nopolDisplay = job.nopol || `<span style="color: var(--text-muted); font-style: italic;">-</span>`;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight:600;">${driverDisplay}</td>
+                <td>
+                    <div style="font-size:12.5px; font-weight:700;">${job.noLO}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${job.noSO}</div>
+                </td>
+                <td style="font-family:monospace; font-weight:600;">${nopolDisplay}</td>
+                <td>
+                    <div style="font-size:12px; font-weight:600;">${job.kota}</div>
+                    <div style="font-size:11px; color:var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.tujuan}">${job.tujuan}</div>
+                </td>
+                <td style="text-align: center;">${statusBadge}</td>
+            `;
+            adminJobMonitorTbody.appendChild(tr);
+        });
+    }
+
+    // --- Audio and Text-to-Speech Notification Logics ---
+    let notificationIntervalId = null;
+
+    function playBeepChime() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.value = 587.33; 
+            gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.3);
+            
+            setTimeout(() => {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.value = 880; 
+                gain2.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.4);
+            }, 180);
+        } catch (e) {
+            console.warn("Web Audio API chime blocked/failed:", e);
+        }
+    }
+
+    function playNewJobVoiceNotification(driverName) {
+        if (!('speechSynthesis' in window)) return;
+        
+        const text = `Perhatian ${driverName}, ada tugas baru masuk untuk Anda. Silakan pilih pekerjaan Anda.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'id-ID';
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
+        if (idVoice) utterance.voice = idVoice;
+        
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function triggerNewJobAlert() {
+        if (!currentDriver || activeTrip) return;
+        playBeepChime();
+        setTimeout(() => {
+            playNewJobVoiceNotification(currentDriver.name);
+        }, 600);
+    }
+
+    function checkNewJobNotification(previousJobsCount) {
+        if (!currentDriver || activeTrip) {
+            if (notificationIntervalId) {
+                clearInterval(notificationIntervalId);
+                notificationIntervalId = null;
+            }
+            return;
+        }
+        
+        const currentPendingJobs = jobAssignments.filter(job => job.status === 'pending');
+        
+        if (currentPendingJobs.length > previousJobsCount && currentPendingJobs.length > 0) {
+            triggerNewJobAlert();
+            
+            if (!notificationIntervalId) {
+                notificationIntervalId = setInterval(() => {
+                    const pendingCount = jobAssignments.filter(job => job.status === 'pending').length;
+                    if (currentDriver && !activeTrip && pendingCount > 0) {
+                        triggerNewJobAlert();
+                    } else {
+                        clearInterval(notificationIntervalId);
+                        notificationIntervalId = null;
+                    }
+                }, 30000);
+            }
+        } else if (currentPendingJobs.length === 0) {
+            if (notificationIntervalId) {
+                clearInterval(notificationIntervalId);
+                notificationIntervalId = null;
+            }
+        }
     }
 });
