@@ -181,11 +181,11 @@
                             </div>
                         </div>
 
-                        <!-- No LO -->
+                        <!-- No DO -->
                         <div class="form-group">
-                            <label for="noLO">Nomor LO (Loading Order) <span class="required">*</span></label>
+                            <label for="noDO">Nomor DO (Delivery Order) <span class="required">*</span></label>
                             <div class="input-wrapper">
-                                <input type="text" id="noLO" placeholder="e.g. LO-1002394" required disabled>
+                                <input type="text" id="noDO" placeholder="e.g. DO-1002394" required disabled>
                             </div>
                         </div>
 
@@ -319,8 +319,8 @@
                     <div class="summary-card">
                         <div class="summary-grid">
                             <div class="summary-item">
-                                <span class="label">LO / SO</span>
-                                <span class="value" id="summaryLO">-</span>
+                                <span class="label">DO / SO</span>
+                                <span class="value" id="summaryDO">-</span>
                             </div>
                             <div class="summary-item">
                                 <span class="label">Tujuan</span>
@@ -430,8 +430,8 @@
                     <div class="summary-card">
                         <div class="summary-grid">
                             <div class="summary-item">
-                                <span class="label">LO / SO</span>
-                                <span class="value" id="summaryLO3">-</span>
+                                <span class="label">DO / SO</span>
+                                <span class="value" id="summaryDO3">-</span>
                             </div>
                             <div class="summary-item">
                                 <span class="label">Tujuan</span>
@@ -637,15 +637,15 @@
                     </div>
                 </div>
 
-                <!-- 1b. Buat Penugasan Ritase (Job Assignment) -->
+                <!-- 1b. Buat Shipment / Perjalanan (Job Assignment) -->
                 <div class="admin-section-block">
                     <div class="block-header">
-                        <h3>Buat Penugasan Ritase Baru</h3>
+                        <h3>Buat Shipment / Perjalanan Baru</h3>
                     </div>
                     <form id="adminAssignJobForm" class="interactive-form" style="gap: 16px; margin-bottom: 12px;" novalidate>
                         <div class="form-group">
-                            <label for="jobNoLO">No. LO <span class="required">*</span></label>
-                            <input type="text" id="jobNoLO" placeholder="Contoh: LO1002394" required>
+                            <label for="jobNoDO">No. DO <span class="required">*</span></label>
+                            <input type="text" id="jobNoDO" placeholder="Contoh: DO1002394" required>
                         </div>
                         <div class="form-group">
                             <label for="jobNoSO">No. SO <span class="required">*</span></label>
@@ -705,7 +705,7 @@
                             <thead>
                                 <tr>
                                     <th>Driver (AMT 1)</th>
-                                    <th>No. LO / SO</th>
+                                    <th>No. DO / SO</th>
                                     <th>Nopol</th>
                                     <th>Tujuan</th>
                                     <th style="width: 120px; text-align: center;">Status</th>

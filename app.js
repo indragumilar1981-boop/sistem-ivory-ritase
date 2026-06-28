@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputNoPolisi = document.getElementById('noPolisi');
     const inputNamaAMT1 = document.getElementById('namaAMT1');
     const inputNamaAMT2 = document.getElementById('namaAMT2');
-    const inputNoLO = document.getElementById('noLO');
+    const inputNoDO = document.getElementById('noDO');
     const inputNoSO = document.getElementById('noSO');
     const inputProduk = document.getElementById('produk');
     const inputQuantity = document.getElementById('quantity');
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Step 2: Tiba di Lokasi
     const arriveForm = document.getElementById('arriveTripForm');
-    const summaryLO = document.getElementById('summaryLO');
+    const summaryDO = document.getElementById('summaryDO');
     const summaryTujuan = document.getElementById('summaryTujuan');
     const summaryOdoAwal = document.getElementById('summaryOdoAwal');
     const summaryStartTime = document.getElementById('summaryStartTime');
@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Step 3: Selesaikan Perjalanan
     const completeForm = document.getElementById('completeTripForm');
-    const summaryLO3 = document.getElementById('summaryLO3');
+    const summaryDO3 = document.getElementById('summaryDO3');
     const summaryOdoAwal3 = document.getElementById('summaryOdoAwal3');
     const summaryOdoTiba3 = null; // Removed
     const summaryJarakPergi = null; // Removed
@@ -1290,7 +1290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusText.innerText = `Sedang Jalan ke: ${activeTrip.tujuan}`;
                 
                 // Fill summary
-                summaryLO.innerText = `${activeTrip.noLO} / ${activeTrip.noSO}`;
+                summaryDO.innerText = `${activeTrip.noDO || activeTrip.noLO || '-'} / ${activeTrip.noSO}`;
                 summaryTujuan.innerText = `${activeTrip.kota} - ${activeTrip.tujuan}`;
                 summaryOdoAwal.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
                 summaryStartTime.innerText = formatTime(activeTrip.startTime);
@@ -1314,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusText.innerText = `Tiba di Lokasi. Menunggu Bongkar & Selesai`;
                 
                 // Fill summary
-                summaryLO3.innerText = `${activeTrip.noLO} / ${activeTrip.noSO}`;
+                summaryDO3.innerText = `${activeTrip.noDO || activeTrip.noLO || '-'} / ${activeTrip.noSO}`;
                 summaryOdoAwal3.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
                 
                 const summaryTujuan3 = document.getElementById('summaryTujuan3');
@@ -1348,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Validation
         if (!inputTanggal.value || !inputNoPolisi.value || !inputNamaAMT1.value || !inputNamaAMT2.value || 
-            !inputNoLO.value || !inputNoSO.value || !inputProduk.value || !inputQuantity.value || 
+            !inputNoDO.value || !inputNoSO.value || !inputProduk.value || !inputQuantity.value || 
             !inputKota.value || !inputTujuan.value || !inputOdoAwal.value) {
             showToast("Harap isi semua kolom wajib!", "error");
             return;
@@ -1395,7 +1395,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 kapasitas: matchedTanki ? matchedTanki.kapasitas : 0,
                 namaAMT1: inputNamaAMT1.value,
                 namaAMT2: inputNamaAMT2.value,
-                noLO: inputNoLO.value,
+                noDO: inputNoDO.value,
                 noSO: inputNoSO.value,
                 produk: inputProduk.value,
                 quantity: parseFloat(inputQuantity.value),
@@ -1716,7 +1716,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="h-card-title">
                         <span class="dest">${trip.kota} - ${trip.tujuan}</span>
                         <div class="info-row">
-                            <span>LO: ${trip.noLO}</span>
+                            <span>DO: ${trip.noDO || trip.noLO || '-'}</span>
                             <span>•</span>
                             <span>${trip.noPolisi}</span>
                             <span>•</span>
@@ -1775,8 +1775,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="val">${trip.namaAMT2 || '-'}</span>
                     </div>
                     <div class="info-box-v">
-                        <span class="lbl">No LO</span>
-                        <span class="val">${trip.noLO}</span>
+                        <span class="lbl">No DO</span>
+                        <span class="val">${trip.noDO || trip.noLO || '-'}</span>
                     </div>
                     <div class="info-box-v">
                         <span class="lbl">No SO</span>
@@ -2056,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Header CSV with BOM
         let csvContent = "\uFEFF";
-        csvContent += "Tanggal Pengiriman,No Polisi,Nama AMT 1,Nama AMT 2,No LO,No SO,Produk,Quantity (L),Kota,Tujuan Pengiriman," +
+        csvContent += "Tanggal Pengiriman,No Polisi,Nama AMT 1,Nama AMT 2,No DO,No SO,Produk,Quantity (L),Kota,Tujuan Pengiriman," +
                       "Odo Awal (km),Odo Tiba (km),Odo Akhir (km),Jarak Pergi (km),Jarak Pulang (km),Jarak Total (km)," +
                       "Rasio KM/Liter,Uang Makan (Rp),Uang Ritase (Rp),Total Rupiah (Rp)," +
                       "Ownuse (Liter),Struk BBM Ownuse,Struk TOL," +
@@ -2076,7 +2076,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 trip.noPolisi,
                 `"${(trip.namaAMT1 || '').replace(/"/g, '""')}"`,
                 `"${(trip.namaAMT2 || '').replace(/"/g, '""')}"`,
-                `"${trip.noLO}"`,
+                `"${trip.noDO || trip.noLO || ''}"`,
                 `"${trip.noSO}"`,
                 trip.produk,
                 trip.quantity,
@@ -2359,7 +2359,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="active-card-top">
                         <div class="active-driver-info">
                             <span class="name">${trip.namaAMT1} (AMT 1) / ${trip.namaAMT2} (AMT 2)</span>
-                            <span class="sub-info">LO: ${trip.noLO} | SO: ${trip.noSO}</span>
+                            <span class="sub-info">DO: ${trip.noDO || trip.noLO || '-'} | SO: ${trip.noSO}</span>
                         </div>
                         <span class="active-status-badge">Tahap ${trip.step - 1}</span>
                     </div>
@@ -2424,7 +2424,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return (
                 trip.noPolisi.toLowerCase().includes(query) ||
                 trip.kota.toLowerCase().includes(query) ||
-                trip.noLO.toLowerCase().includes(query) ||
+                (trip.noDO || trip.noLO || '').toLowerCase().includes(query) ||
                 trip.noSO.toLowerCase().includes(query) ||
                 (trip.namaAMT1 || '').toLowerCase().includes(query) ||
                 (trip.namaAMT2 || '').toLowerCase().includes(query) ||
@@ -2462,7 +2462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span>AMT: ${trip.namaAMT1} & ${trip.namaAMT2}</span>
                         </div>
                         <div class="info-row" style="margin-top:2px;">
-                            <span>LO: ${trip.noLO} | SO: ${trip.noSO}</span>
+                            <span>DO: ${trip.noDO || trip.noLO || '-'} | SO: ${trip.noSO}</span>
                             <span>•</span>
                             <span>${trip.noPolisi}</span>
                             <span>•</span>
@@ -2512,7 +2512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 kapasitas: 16000,
                 namaAMT1: "AHMAD FAUZI",
                 namaAMT2: "SLAMET SANTOSO",
-                noLO: "LO-9002930",
+                noDO: "DO-9002930",
                 noSO: "SO-8004920",
                 produk: "Bio Solar",
                 quantity: 16000,
@@ -2543,7 +2543,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 kapasitas: 8000,
                 namaAMT1: "RUDI HERMAWAN",
                 namaAMT2: "JOKO WIDODO",
-                noLO: "LO-9002511",
+                noDO: "DO-9002511",
                 noSO: "SO-8004122",
                 produk: "Pertalite",
                 quantity: 8000,
@@ -2574,7 +2574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 kapasitas: 8000,
                 namaAMT1: "DEDI SUSANTO",
                 namaAMT2: "ANDI WIJAYA",
-                noLO: "LO-9002104",
+                noDO: "DO-9002104",
                 noSO: "SO-8003901",
                 produk: "Pertamina Dex",
                 quantity: 8000,
@@ -3978,7 +3978,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${job.tujuan}</div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; margin-top: 4px;">
-                    <div><span style="color: var(--text-muted);">LO/SO:</span> <strong style="color: #fff;">${job.noLO}/${job.noSO}</strong></div>
+                    <div><span style="color: var(--text-muted);">DO/SO:</span> <strong style="color: #fff;">${job.noDO || job.noLO || '-'}/${job.noSO}</strong></div>
                     <div><span style="color: var(--text-muted);">Produk:</span> <strong style="color: #fff;">${job.produk}</strong></div>
                     <div><span style="color: var(--text-muted);">Volume:</span> <strong style="color: #fff;">${formatNumber(job.quantity)} L</strong></div>
                 </div>
@@ -4005,7 +4005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputNamaAMT1.value = currentDriver.name;
         inputNamaAMT1.disabled = true;
         
-        inputNoLO.value = job.noLO;
+        inputNoDO.value = job.noDO || job.noLO || '';
         inputNoSO.value = job.noSO;
         
         inputProduk.innerHTML = `<option value="${job.produk}">${job.produk}</option>`;
@@ -4066,21 +4066,21 @@ document.addEventListener('DOMContentLoaded', () => {
         adminAssignJobForm.addEventListener('submit', (e) => {
             e.preventDefault();
             
-            const noLO = document.getElementById('jobNoLO').value.trim();
+            const noDO = document.getElementById('jobNoDO').value.trim();
             const noSO = document.getElementById('jobNoSO').value.trim();
             const produk = document.getElementById('jobProduk').value;
             const quantity = parseFloat(document.getElementById('jobQuantity').value);
             const kota = document.getElementById('jobKota').value;
             const tujuan = document.getElementById('jobTujuan').value.trim();
             
-            if (!noLO || !noSO || !produk || isNaN(quantity) || !kota || !tujuan) {
-                showToast("Harap lengkapi semua kolom tugas wajib!", "error");
+            if (!noDO || !noSO || !produk || isNaN(quantity) || !kota || !tujuan) {
+                showToast("Harap lengkapi semua kolom shipment wajib!", "error");
                 return;
             }
             
             const newJob = {
                 id: generateJobId(),
-                noLO: noLO.toUpperCase(),
+                noDO: noDO.toUpperCase(),
                 noSO: noSO.toUpperCase(),
                 nopol: '',
                 driverName: '',
@@ -4099,7 +4099,7 @@ document.addEventListener('DOMContentLoaded', () => {
             adminAssignJobForm.reset();
             populateAssignJobDropdowns();
             renderJobMonitorTable();
-            showToast(`Tugas ${newJob.id} berhasil dibuat di daftar penugasan!`, "success");
+            showToast(`Shipment ${newJob.id} berhasil dibuat!`, "success");
         });
     }
 
@@ -4166,7 +4166,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.innerHTML = `
                 <td style="font-weight:600;">${driverDisplay}</td>
                 <td>
-                    <div style="font-size:12.5px; font-weight:700;">${job.noLO}</div>
+                    <div style="font-size:12.5px; font-weight:700;">${job.noDO || job.noLO || '-'}</div>
                     <div style="font-size:11px; color:var(--text-muted);">${job.noSO}</div>
                 </td>
                 <td style="font-family:monospace; font-weight:600;">${nopolDisplay}</td>
