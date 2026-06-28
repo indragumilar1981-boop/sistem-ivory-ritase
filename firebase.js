@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
@@ -18,18 +18,16 @@ let db = null;
 if (isFirebaseConfigured) {
   try {
     app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
     
-    // Enable local offline persistence for real-time sync
-    enableMultiTabIndexedDbPersistence(db).catch((err) => {
-        if (err.code == 'failed-precondition') {
-            console.warn("Firestore offline persistence: multiple tabs open.");
-        } else if (err.code == 'unimplemented') {
-            console.warn("Firestore offline persistence: browser unsupported.");
-        } else {
-            console.warn("Firestore offline persistence failed:", err);
-        }
+    // Initialize Firestore with persistent local cache (offline-first)
+    // Data will be stored locally in IndexedDB and synced to cloud when online
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     });
+    
+    console.log("Firestore initialized with persistent offline cache (IndexedDB).");
   } catch (err) {
     console.error("Gagal menginisialisasi Firebase:", err);
   }
