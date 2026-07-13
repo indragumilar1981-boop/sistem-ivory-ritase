@@ -1246,8 +1246,20 @@ document.addEventListener('DOMContentLoaded', () => {
             statusDot.className = 'pulse-dot idle';
             statusText.innerText = 'Silakan Login untuk Memulai';
             
+            // Stop trial timer if not logged in
+            if (typeof stopAccessTimer === 'function') {
+                stopAccessTimer();
+            }
+            const _badge = document.getElementById('accessTimerBadge');
+            if (_badge) _badge.classList.add('hidden');
+            
             renderHistoryList();
             return;
+        }
+
+        // Start access timer if in driver mode and logged in
+        if (currentMode === 'driver' && currentDriver && typeof startAccessTimer === 'function') {
+            startAccessTimer();
         }
         
         if (!activeTrip) {
@@ -2166,6 +2178,12 @@ document.addEventListener('DOMContentLoaded', () => {
             adminPanel.classList.add('hidden');
             
             if (modeSwitcher) modeSwitcher.classList.add('hidden');
+            if (adminNavTabs) adminNavTabs.classList.add('hidden');
+            
+            // Restart access timer when switching to driver mode
+            if (typeof accessConfig !== 'undefined' && !accessConfig.fullAccess) {
+                startAccessTimer();
+            }
             
             renderAppView();
         } else {
@@ -2179,6 +2197,8 @@ document.addEventListener('DOMContentLoaded', () => {
             adminPanel.classList.remove('hidden');
             
             if (modeSwitcher) modeSwitcher.classList.remove('hidden');
+            if (adminNavTabs) adminNavTabs.classList.remove('hidden');
+            updateAdminTabsUI(window.location.hash);
             
             // Populate rates settings inputs
             inputRateBatasKM.value = ratesSettings.batasKM;
@@ -2188,6 +2208,20 @@ document.addEventListener('DOMContentLoaded', () => {
             populateAssignJobDropdowns();
             renderJobMonitorTable();
             renderAdminPanel();
+            
+            // Stop access timer and remove overlays in admin mode
+            if (typeof stopAccessTimer === 'function') {
+                stopAccessTimer();
+            }
+            const _accessOverlay = document.getElementById('accessBlockedOverlay');
+            if (_accessOverlay) _accessOverlay.classList.add('hidden');
+            const _timerBadge = document.getElementById('accessTimerBadge');
+            if (_timerBadge) _timerBadge.classList.add('hidden');
+            
+            // Load access config UI for Preferences panel
+            if (typeof loadAccessConfigUI === 'function') {
+                loadAccessConfigUI();
+            }
         }
     }
     
@@ -3632,11 +3666,32 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleRouting() {
         const hash = window.location.hash;
         const performanceSection = document.getElementById('performanceSection');
+        const preferenceSection = document.getElementById('preferenceSection');
+        
+        // Security check: only allow admin hashes if admin is authenticated
+        if (hash === '#performance' || hash === '#performa' || hash === '#preference' || hash === '#preferensi') {
+            if (!isAdminLoggedIn) {
+                // Clear hash, show toast and trigger PIN verification modal
+                window.location.hash = '';
+                showToast("Akses ditolak. Silakan login sebagai Admin terlebih dahulu.", "error");
+                openPinModal();
+                return;
+            }
+        }
+
+        // Show/hide admin tabs based on authentication and active path
+        if (isAdminLoggedIn) {
+            if (adminNavTabs) adminNavTabs.classList.remove('hidden');
+            updateAdminTabsUI(hash);
+        } else {
+            if (adminNavTabs) adminNavTabs.classList.add('hidden');
+        }
         
         if (hash === '#performance' || hash === '#performa') {
             formSection.classList.add('hidden');
             driverHistorySection.classList.add('hidden');
             adminPanel.classList.add('hidden');
+            if (preferenceSection) preferenceSection.classList.add('hidden');
             
             if (performanceSection) {
                 performanceSection.classList.remove('hidden');
@@ -3647,10 +3702,57 @@ document.addEventListener('DOMContentLoaded', () => {
             headerStatusIndicator.classList.add('hidden');
             
             btnModeDriver.classList.remove('active');
-            btnModeAdmin.classList.remove('active');
+            btnModeAdmin.classList.add('active'); // Keep Admin button active
+        } else if (hash === '#preference' || hash === '#preferensi') {
+            formSection.classList.add('hidden');
+            driverHistorySection.classList.add('hidden');
+            adminPanel.classList.add('hidden');
+            if (performanceSection) performanceSection.classList.add('hidden');
+            
+            if (preferenceSection) {
+                preferenceSection.classList.remove('hidden');
+                if (typeof loadAccessConfigUI === 'function') {
+                    loadAccessConfigUI();
+                }
+            }
+            
+            subBrandText.innerText = "Preferensi Akses Aplikasi";
+            headerStatusIndicator.classList.add('hidden');
+            
+            btnModeDriver.classList.remove('active');
+            btnModeAdmin.classList.add('active'); // Keep Admin button active
+            
+            // Stop access timer and remove overlays in preference mode
+            if (typeof stopAccessTimer === 'function') {
+                stopAccessTimer();
+            }
+            const _accessOverlay = document.getElementById('accessBlockedOverlay');
+            if (_accessOverlay) _accessOverlay.classList.add('hidden');
+            const _timerBadge = document.getElementById('accessTimerBadge');
+            if (_timerBadge) _timerBadge.classList.add('hidden');
         } else {
             if (performanceSection) performanceSection.classList.add('hidden');
+            if (preferenceSection) preferenceSection.classList.add('hidden');
             switchMode(currentMode);
+        }
+    }
+
+    function updateAdminTabsUI(hash) {
+        const tabDashboard = document.getElementById('tabAdminDashboard');
+        const tabPerformance = document.getElementById('tabAdminPerformance');
+        const tabPreference = document.getElementById('tabAdminPreference');
+        if (!tabDashboard || !tabPerformance || !tabPreference) return;
+
+        tabDashboard.classList.remove('active');
+        tabPerformance.classList.remove('active');
+        tabPreference.classList.remove('active');
+
+        if (hash === '#performance' || hash === '#performa') {
+            tabPerformance.classList.add('active');
+        } else if (hash === '#preference' || hash === '#preferensi') {
+            tabPreference.classList.add('active');
+        } else {
+            tabDashboard.classList.add('active');
         }
     }
 
@@ -3661,6 +3763,7 @@ document.addEventListener('DOMContentLoaded', () => {
     populateKotaDropdown();
     renderAppView();
     initFirebaseSync();
+    handleRouting();
 
     // If a driver is already logged in (e.g., page refresh), push session to Firestore
     if (currentDriver) {
@@ -3896,6 +3999,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem(STORAGE_KEY_ACTIVE_USER);
                 document.getElementById('selectedJobId').value = '';
                 if (logoutDriverName) removeDriverSession(logoutDriverName);
+                
+                // Stop access timer on driver logout
+                if (typeof stopAccessTimer === 'function') {
+                    stopAccessTimer();
+                }
+                const _badge = document.getElementById('accessTimerBadge');
+                if (_badge) _badge.classList.add('hidden');
+                
                 showToast("Berhasil logout.", "success");
                 renderAppView();
             }
@@ -4272,5 +4383,242 @@ document.addEventListener('DOMContentLoaded', () => {
                 notificationIntervalId = null;
             }
         }
+    }
+
+    // =========================================================================
+    // ACCESS CONTROL TIMER SYSTEM
+    // =========================================================================
+    const STORAGE_KEY_ACCESS_CONFIG = 'ivory_access_config';
+    const SESSION_KEY_START = 'ivory_access_session_start';
+
+    // Default config: full access OFF (restricted), timer = 3 minutes
+    const DEFAULT_ACCESS_CONFIG = {
+        fullAccess: false,
+        timerMinutes: 3
+    };
+
+    let accessConfig = JSON.parse(localStorage.getItem(STORAGE_KEY_ACCESS_CONFIG)) || DEFAULT_ACCESS_CONFIG;
+    let accessTimerInterval = null;
+
+    // DOM Elements for Access Control
+    const toggleFullAccess = document.getElementById('toggleFullAccess');
+    const accessTimerMinutesInput = document.getElementById('accessTimerMinutes');
+    const btnSaveAccessConfig = document.getElementById('btnSaveAccessConfig');
+    const accessTimerConfig = document.getElementById('accessTimerConfig');
+    const accessStatusInfo = document.getElementById('accessStatusInfo');
+    const accessStatusText = document.getElementById('accessStatusText');
+    const accessBlockedOverlay = document.getElementById('accessBlockedOverlay');
+    const accessTimerCountdown = document.getElementById('accessTimerCountdown');
+    const accessTimerBadge = document.getElementById('accessTimerBadge');
+    const floatingTimerText = document.getElementById('floatingTimerText');
+    const btnUnlockAdminMode = document.getElementById('btnUnlockAdminMode');
+    const adminNavTabs = document.getElementById('adminNavTabs');
+
+    function loadAccessConfigUI() {
+        if (!toggleFullAccess) return;
+        toggleFullAccess.checked = accessConfig.fullAccess;
+        if (accessTimerMinutesInput) accessTimerMinutesInput.value = accessConfig.timerMinutes;
+
+        updateAccessStatusUI();
+    }
+
+    function updateAccessStatusUI() {
+        if (!accessTimerConfig || !accessStatusInfo || !accessStatusText) return;
+
+        if (accessConfig.fullAccess) {
+            accessTimerConfig.style.display = 'none';
+            accessStatusInfo.style.background = 'rgba(16, 185, 129, 0.08)';
+            accessStatusInfo.style.borderColor = 'rgba(16, 185, 129, 0.15)';
+            accessStatusInfo.style.color = '#34d399';
+            accessStatusText.innerText = 'Full Akses AKTIF: Pengguna dapat menggunakan aplikasi tanpa batas waktu.';
+        } else {
+            accessTimerConfig.style.display = 'block';
+            accessStatusInfo.style.background = 'rgba(245, 158, 11, 0.08)';
+            accessStatusInfo.style.borderColor = 'rgba(245, 158, 11, 0.15)';
+            accessStatusInfo.style.color = '#fbbf24';
+            accessStatusText.innerText = `Akses dibatasi: Pengguna memiliki waktu ${accessConfig.timerMinutes} menit untuk menggunakan aplikasi.`;
+        }
+    }
+
+    // Toggle full access handler
+    if (toggleFullAccess) {
+        toggleFullAccess.addEventListener('change', () => {
+            accessConfig.fullAccess = toggleFullAccess.checked;
+            localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+            updateAccessStatusUI();
+
+            if (accessConfig.fullAccess) {
+                // Immediately remove any access block
+                stopAccessTimer();
+                if (accessBlockedOverlay) accessBlockedOverlay.classList.add('hidden');
+                if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+                showToast('Full Akses diaktifkan! Pengguna dapat menggunakan aplikasi tanpa batas waktu.', 'success');
+            } else {
+                // Restart timer from now
+                localStorage.setItem(SESSION_KEY_START, Date.now().toString());
+                startAccessTimer();
+                showToast(`Akses dibatasi! Pengguna memiliki ${accessConfig.timerMinutes} menit.`, 'warning');
+            }
+
+            // Sync to Firestore if available
+            if (isFirebaseConfigured && db) {
+                setDoc(doc(db, "app_config", "access_control"), accessConfig).catch(err => {
+                    console.error("Error syncing access config:", err);
+                });
+            }
+        });
+    }
+
+    // Save access config (timer minutes)
+    if (btnSaveAccessConfig) {
+        btnSaveAccessConfig.addEventListener('click', () => {
+            const mins = parseInt(accessTimerMinutesInput.value);
+            if (isNaN(mins) || mins < 1 || mins > 60) {
+                showToast('Durasi harus antara 1 - 60 menit.', 'error');
+                return;
+            }
+            accessConfig.timerMinutes = mins;
+            localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+            updateAccessStatusUI();
+
+            // Restart timer with new duration
+            localStorage.setItem(SESSION_KEY_START, Date.now().toString());
+            if (!accessConfig.fullAccess) {
+                startAccessTimer();
+            }
+
+            // Sync to Firestore if available
+            if (isFirebaseConfigured && db) {
+                setDoc(doc(db, "app_config", "access_control"), accessConfig).catch(err => {
+                    console.error("Error syncing access config:", err);
+                });
+            }
+
+            showToast(`Durasi akses diperbarui menjadi ${mins} menit.`, 'success');
+        });
+    }
+
+    function formatCountdown(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function startAccessTimer() {
+        // Don't run timer if full access is enabled or in admin mode or no driver logged in
+        if (accessConfig.fullAccess || currentMode === 'admin' || !currentDriver) {
+            if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+            return;
+        }
+
+        // Get or set session start time in localStorage for persistence across app closures
+        let sessionStart = parseInt(localStorage.getItem(SESSION_KEY_START));
+        if (!sessionStart || isNaN(sessionStart)) {
+            sessionStart = Date.now();
+            localStorage.setItem(SESSION_KEY_START, sessionStart.toString());
+        }
+
+        const totalMs = accessConfig.timerMinutes * 60 * 1000;
+
+        // Clear any existing timer
+        stopAccessTimer();
+
+        // Show floating badge
+        if (accessTimerBadge) accessTimerBadge.classList.remove('hidden');
+
+        accessTimerInterval = setInterval(() => {
+            const elapsed = Date.now() - sessionStart;
+            const remaining = Math.max(0, totalMs - elapsed);
+            const remainingSec = Math.ceil(remaining / 1000);
+
+            // Update floating badge
+            if (floatingTimerText) floatingTimerText.innerText = formatCountdown(remainingSec);
+
+            // Urgent state when < 60s
+            if (accessTimerBadge) {
+                if (remainingSec <= 60 && remainingSec > 0) {
+                    accessTimerBadge.classList.add('urgent');
+                } else {
+                    accessTimerBadge.classList.remove('urgent');
+                }
+            }
+
+            // Timer expired!
+            if (remaining <= 0) {
+                stopAccessTimer();
+                showAccessBlockedOverlay();
+            }
+        }, 1000);
+
+        // Initial immediate check
+        const elapsed = Date.now() - sessionStart;
+        const remaining = Math.max(0, totalMs - elapsed);
+        if (remaining <= 0) {
+            stopAccessTimer();
+            showAccessBlockedOverlay();
+        } else {
+            const remainingSec = Math.ceil(remaining / 1000);
+            if (floatingTimerText) floatingTimerText.innerText = formatCountdown(remainingSec);
+        }
+    }
+
+    function stopAccessTimer() {
+        if (accessTimerInterval) {
+            clearInterval(accessTimerInterval);
+            accessTimerInterval = null;
+        }
+    }
+
+    function showAccessBlockedOverlay() {
+        if (!accessBlockedOverlay) return;
+
+        // Don't block admin mode
+        if (currentMode === 'admin') return;
+
+        accessBlockedOverlay.classList.remove('hidden');
+        if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+
+        // Update countdown display to 00:00
+        if (accessTimerCountdown) accessTimerCountdown.innerText = '00:00';
+    }
+
+    // Wire unlock admin button inside access blocked overlay
+    if (btnUnlockAdminMode) {
+        btnUnlockAdminMode.addEventListener('click', () => {
+            openPinModal();
+        });
+    }
+
+    // Sync access config from Firestore
+    if (isFirebaseConfigured && db) {
+        onSnapshot(doc(db, "app_config", "access_control"), (docSnap) => {
+            if (docSnap.exists()) {
+                const cloudConfig = docSnap.data();
+                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig };
+                localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+                loadAccessConfigUI();
+
+                // Restart or stop timer based on cloud config
+                if (accessConfig.fullAccess) {
+                    stopAccessTimer();
+                    if (accessBlockedOverlay) accessBlockedOverlay.classList.add('hidden');
+                    if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+                } else {
+                    if (currentMode !== 'admin' && currentDriver) {
+                        startAccessTimer();
+                    }
+                }
+            }
+        }, (err) => {
+            console.error("Firestore access config sync error:", err);
+        });
+    }
+
+    // Initialize access control
+    loadAccessConfigUI();
+
+    // Start timer only if not in admin mode, full access is off, and driver is logged in
+    if (!accessConfig.fullAccess && currentMode !== 'admin' && currentDriver) {
+        startAccessTimer();
     }
 });
