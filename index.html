@@ -1247,34 +1247,22 @@
     </div>
 
     <!-- Access Blocked Overlay Modal -->
-    <div class="access-blocked-overlay hidden" id="accessBlockedOverlay">
+    <div class="access-blocked-overlay hidden" id="accessBlockedOverlay" style="display: none !important;">
         <div class="access-blocked-modal glass-card">
             <div class="access-blocked-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
             </div>
-            <h2 class="access-blocked-title">Waktu Akses Habis</h2>
-            <p class="access-blocked-desc">Masa percobaan Anda telah berakhir. Silakan hubungi pihak terkait jika ingin melakukan <strong>full akses</strong> ke aplikasi ini.</p>
-            <div class="access-blocked-timer" id="accessBlockedTimerDisplay">
-                <span class="timer-label">Sesi berakhir pada:</span>
-                <span class="timer-value" id="accessTimerCountdown">00:00</span>
-            </div>
+            <h2 class="access-blocked-title">Aplikasi Belum Bisa Diakses</h2>
+            <p class="access-blocked-desc">Aplikasi ini belum bisa diakses.<br>Jika ingin melakukan <strong>full akses</strong>, silakan hubungi development.</p>
             <div class="access-blocked-contact">
                 <div class="contact-badge">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
                     </svg>
-                    Hubungi Admin / Developer
+                    Hubungi Developer
                 </div>
-            </div>
-            <div class="access-blocked-admin-trigger" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); width: 100%;">
-                <button type="button" class="btn btn-outline btn-block" id="btnUnlockAdminMode" style="font-size: 12px; height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px; border-color: rgba(255, 255, 255, 0.1); color: var(--text-muted); background: transparent;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-                    </svg>
-                    Masuk Sebagai Admin
-                </button>
             </div>
         </div>
     </div>

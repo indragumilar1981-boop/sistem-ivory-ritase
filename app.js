@@ -19,6 +19,9 @@ import {
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Global Application Block Flag ---
+    const IS_APP_BLOCKED = false;
+
     // --- State & Storage Keys ---
     const STORAGE_KEY_ACTIVE = 'ivory_active_trip';
     const STORAGE_KEY_HISTORY = 'ivory_trip_history';
@@ -28,6 +31,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_ACCESS_LOGS = 'ivory_access_logs';
     const STORAGE_KEY_JOBS = 'ivory_job_assignments';
     const STORAGE_KEY_ACTIVE_USER = 'ivory_active_user';
+    
+    // --- Access Control State & Keys ---
+    const STORAGE_KEY_ACCESS_CONFIG = 'ivory_access_config';
+    const SESSION_KEY_START = 'ivory_access_session_start';
+    const DEFAULT_ACCESS_CONFIG = {
+        fullAccess: true,
+        timerMinutes: 3
+    };
+    let accessConfig = JSON.parse(localStorage.getItem(STORAGE_KEY_ACCESS_CONFIG)) || DEFAULT_ACCESS_CONFIG;
+    accessConfig.fullAccess = true;
+    localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+    let accessTimerInterval = null;
+
     let hasLoggedDriverAccess = false;
     let hasLoggedAdminAccess = false;
     
@@ -183,6 +199,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Status Header
     const statusDot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
+    
+    // DOM Elements for Access Control
+    const toggleFullAccess = document.getElementById('toggleFullAccess');
+    const accessTimerMinutesInput = document.getElementById('accessTimerMinutes');
+    const btnSaveAccessConfig = document.getElementById('btnSaveAccessConfig');
+    const accessTimerConfig = document.getElementById('accessTimerConfig');
+    const accessStatusInfo = document.getElementById('accessStatusInfo');
+    const accessStatusText = document.getElementById('accessStatusText');
+    const accessBlockedOverlay = document.getElementById('accessBlockedOverlay');
+    const accessTimerCountdown = document.getElementById('accessTimerCountdown');
+    const accessTimerBadge = document.getElementById('accessTimerBadge');
+    const floatingTimerText = document.getElementById('floatingTimerText');
+    const btnUnlockAdminMode = document.getElementById('btnUnlockAdminMode');
+    const adminNavTabs = document.getElementById('adminNavTabs');
     
     // Step 1: Mulai Perjalanan
     const startForm = document.getElementById('startTripForm');
@@ -2214,7 +2244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 stopAccessTimer();
             }
             const _accessOverlay = document.getElementById('accessBlockedOverlay');
-            if (_accessOverlay) _accessOverlay.classList.add('hidden');
+            if (_accessOverlay && !IS_APP_BLOCKED) _accessOverlay.classList.add('hidden');
             const _timerBadge = document.getElementById('accessTimerBadge');
             if (_timerBadge) _timerBadge.classList.add('hidden');
             
@@ -3727,7 +3757,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 stopAccessTimer();
             }
             const _accessOverlay = document.getElementById('accessBlockedOverlay');
-            if (_accessOverlay) _accessOverlay.classList.add('hidden');
+            if (_accessOverlay && !IS_APP_BLOCKED) _accessOverlay.classList.add('hidden');
             const _timerBadge = document.getElementById('accessTimerBadge');
             if (_timerBadge) _timerBadge.classList.add('hidden');
         } else {
@@ -4388,31 +4418,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     // ACCESS CONTROL TIMER SYSTEM
     // =========================================================================
-    const STORAGE_KEY_ACCESS_CONFIG = 'ivory_access_config';
-    const SESSION_KEY_START = 'ivory_access_session_start';
-
-    // Default config: full access OFF (restricted), timer = 3 minutes
-    const DEFAULT_ACCESS_CONFIG = {
-        fullAccess: false,
-        timerMinutes: 3
-    };
-
-    let accessConfig = JSON.parse(localStorage.getItem(STORAGE_KEY_ACCESS_CONFIG)) || DEFAULT_ACCESS_CONFIG;
-    let accessTimerInterval = null;
-
-    // DOM Elements for Access Control
-    const toggleFullAccess = document.getElementById('toggleFullAccess');
-    const accessTimerMinutesInput = document.getElementById('accessTimerMinutes');
-    const btnSaveAccessConfig = document.getElementById('btnSaveAccessConfig');
-    const accessTimerConfig = document.getElementById('accessTimerConfig');
-    const accessStatusInfo = document.getElementById('accessStatusInfo');
-    const accessStatusText = document.getElementById('accessStatusText');
-    const accessBlockedOverlay = document.getElementById('accessBlockedOverlay');
-    const accessTimerCountdown = document.getElementById('accessTimerCountdown');
-    const accessTimerBadge = document.getElementById('accessTimerBadge');
-    const floatingTimerText = document.getElementById('floatingTimerText');
-    const btnUnlockAdminMode = document.getElementById('btnUnlockAdminMode');
-    const adminNavTabs = document.getElementById('adminNavTabs');
 
     function loadAccessConfigUI() {
         if (!toggleFullAccess) return;
@@ -4450,7 +4455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (accessConfig.fullAccess) {
                 // Immediately remove any access block
                 stopAccessTimer();
-                if (accessBlockedOverlay) accessBlockedOverlay.classList.add('hidden');
+                if (accessBlockedOverlay && !IS_APP_BLOCKED) accessBlockedOverlay.classList.add('hidden');
                 if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
                 showToast('Full Akses diaktifkan! Pengguna dapat menggunakan aplikasi tanpa batas waktu.', 'success');
             } else {
@@ -4505,9 +4510,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startAccessTimer() {
+        if (IS_APP_BLOCKED) {
+            if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+            if (accessBlockedOverlay) accessBlockedOverlay.classList.remove('hidden');
+            return;
+        }
         // Don't run timer if full access is enabled or in admin mode or no driver logged in
         if (accessConfig.fullAccess || currentMode === 'admin' || !currentDriver) {
             if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+            if (accessBlockedOverlay) accessBlockedOverlay.classList.add('hidden');
             return;
         }
 
@@ -4570,16 +4581,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showAccessBlockedOverlay() {
-        if (!accessBlockedOverlay) return;
-
-        // Don't block admin mode
-        if (currentMode === 'admin') return;
-
-        accessBlockedOverlay.classList.remove('hidden');
-        if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
-
-        // Update countdown display to 00:00
-        if (accessTimerCountdown) accessTimerCountdown.innerText = '00:00';
+        if (accessBlockedOverlay) {
+            accessBlockedOverlay.classList.add('hidden');
+            accessBlockedOverlay.style.display = 'none';
+        }
+        return;
     }
 
     // Wire unlock admin button inside access blocked overlay
@@ -4594,20 +4600,16 @@ document.addEventListener('DOMContentLoaded', () => {
         onSnapshot(doc(db, "app_config", "access_control"), (docSnap) => {
             if (docSnap.exists()) {
                 const cloudConfig = docSnap.data();
-                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig };
+                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig, fullAccess: true };
                 localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
                 loadAccessConfigUI();
 
-                // Restart or stop timer based on cloud config
-                if (accessConfig.fullAccess) {
-                    stopAccessTimer();
-                    if (accessBlockedOverlay) accessBlockedOverlay.classList.add('hidden');
-                    if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
-                } else {
-                    if (currentMode !== 'admin' && currentDriver) {
-                        startAccessTimer();
-                    }
+                stopAccessTimer();
+                if (accessBlockedOverlay) {
+                    accessBlockedOverlay.classList.add('hidden');
+                    accessBlockedOverlay.style.display = 'none';
                 }
+                if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
             }
         }, (err) => {
             console.error("Firestore access config sync error:", err);
@@ -4617,8 +4619,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize access control
     loadAccessConfigUI();
 
-    // Start timer only if not in admin mode, full access is off, and driver is logged in
-    if (!accessConfig.fullAccess && currentMode !== 'admin' && currentDriver) {
-        startAccessTimer();
+    if (accessBlockedOverlay) {
+        accessBlockedOverlay.classList.add('hidden');
+        accessBlockedOverlay.style.display = 'none';
     }
 });
