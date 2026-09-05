@@ -1128,6 +1128,24 @@
                 </div>
 
                 <div style="background: rgba(0,0,0,0.25); border-radius: 10px; padding: 20px; border: 1px solid var(--glass-border); margin-top: 20px;">
+                    <!-- App Lockdown / Master Block Switch -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
+                        <div>
+                            <div style="font-size: 14.5px; font-weight: 600; color: #f87171; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" style="width: 18px; height: 18px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                </svg>
+                                Blokir Total Akses Aplikasi (Lockdown)
+                            </div>
+                            <div style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5; max-width: 340px;">Aktifkan untuk memblokir akses seluruh pengguna biasa (Driver). Hanya Administrator yang dapat membuka dan menggunakan aplikasi.</div>
+                        </div>
+                        <label class="toggle-switch" style="flex-shrink: 0; margin-left: 16px;">
+                            <input type="checkbox" id="toggleAppBlock">
+                            <span class="toggle-slider" style="background: rgba(239, 68, 68, 0.2);"></span>
+                        </label>
+                    </div>
+
+                    <!-- Full Access Switch -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <div>
                             <div style="font-size: 14.5px; font-weight: 600; color: var(--text-highlight); margin-bottom: 6px;">Full Akses Aplikasi</div>
@@ -1184,7 +1202,7 @@
     <div class="modal-overlay hidden" id="pinModal" style="z-index: 10005;">
         <div class="modal-content glass-card pin-modal-content">
             <div class="modal-header">
-                <h3>Verifikasi PIN Admin</h3>
+                <h3 id="pinModalTitle">Verifikasi PIN Admin</h3>
                 <button class="btn-close" id="btnClosePinModal">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1192,14 +1210,14 @@
                 </button>
             </div>
             <div class="modal-body pin-modal-body">
-                <p class="pin-desc">Masukkan 4-digit PIN keamanan untuk masuk ke Menu Admin.</p>
+                <p class="pin-desc" id="pinModalDesc">Masukkan 4-digit PIN keamanan untuk masuk ke Menu Admin.</p>
                 <div class="pin-input-grid">
                     <input type="password" pattern="[0-9]*" maxlength="1" class="pin-digit" id="pin1" autocomplete="off" inputmode="numeric">
                     <input type="password" pattern="[0-9]*" maxlength="1" class="pin-digit" id="pin2" autocomplete="off" inputmode="numeric">
                     <input type="password" pattern="[0-9]*" maxlength="1" class="pin-digit" id="pin3" autocomplete="off" inputmode="numeric">
                     <input type="password" pattern="[0-9]*" maxlength="1" class="pin-digit" id="pin4" autocomplete="off" inputmode="numeric">
                 </div>
-                <div class="pin-hint">PIN bawaan: 1234</div>
+                <div class="pin-hint" id="pinModalHint">PIN bawaan: 1234</div>
                 <button class="btn btn-primary btn-block" id="btnSubmitPIN">Masuk</button>
             </div>
         </div>
@@ -1247,21 +1265,22 @@
     </div>
 
     <!-- Access Blocked Overlay Modal -->
-    <div class="access-blocked-overlay hidden" id="accessBlockedOverlay" style="display: none !important;">
+    <div class="access-blocked-overlay hidden" id="accessBlockedOverlay">
         <div class="access-blocked-modal glass-card">
-            <div class="access-blocked-icon">
+            <div class="access-blocked-icon" id="blockedLockIcon" style="cursor: pointer; user-select: none;" title="Klik 7x untuk Akses Administrator">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
             </div>
-            <h2 class="access-blocked-title">Aplikasi Belum Bisa Diakses</h2>
-            <p class="access-blocked-desc">Aplikasi ini belum bisa diakses.<br>Jika ingin melakukan <strong>full akses</strong>, silakan hubungi development.</p>
+            <h2 class="access-blocked-title" id="blockedOverlayTitle">Akses Aplikasi Diblokir</h2>
+            <p class="access-blocked-desc" id="blockedOverlayDesc" style="margin-bottom: 24px;">Aplikasi ini sedang diblokir oleh Administrator.<br>Pengguna biasa (Driver) tidak dapat mengakses fitur aplikasi saat ini.</p>
+
             <div class="access-blocked-contact">
-                <div class="contact-badge">
+                <div class="contact-badge" style="cursor: pointer;" onclick="alert('Silakan hubungi Administrator Sistem Ritase Ivory.')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
                     </svg>
-                    Hubungi Developer
+                    Bantuan Administrator
                 </div>
             </div>
         </div>

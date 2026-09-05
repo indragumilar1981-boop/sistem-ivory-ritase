@@ -36,11 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_ACCESS_CONFIG = 'ivory_access_config';
     const SESSION_KEY_START = 'ivory_access_session_start';
     const DEFAULT_ACCESS_CONFIG = {
+        isAppBlocked: false,
         fullAccess: true,
         timerMinutes: 3
     };
-    let accessConfig = JSON.parse(localStorage.getItem(STORAGE_KEY_ACCESS_CONFIG)) || DEFAULT_ACCESS_CONFIG;
-    accessConfig.fullAccess = true;
+    let accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...JSON.parse(localStorage.getItem(STORAGE_KEY_ACCESS_CONFIG) || '{}') };
     localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
     let accessTimerInterval = null;
 
@@ -201,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('statusText');
     
     // DOM Elements for Access Control
+    const toggleAppBlock = document.getElementById('toggleAppBlock');
     const toggleFullAccess = document.getElementById('toggleFullAccess');
     const accessTimerMinutesInput = document.getElementById('accessTimerMinutes');
     const btnSaveAccessConfig = document.getElementById('btnSaveAccessConfig');
@@ -2185,6 +2186,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Admin Dashboard Business Logic ---
     let currentMode = 'driver'; // 'driver' or 'admin'
     let isAdminLoggedIn = false;
+    let isAdministrator = false; // Super Admin flag
+    let pinTargetMode = 'admin'; // 'admin' or 'administrator'
     let editingMasterIndex = null;
     let editingCityName = null;
     
@@ -2210,16 +2213,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (modeSwitcher) modeSwitcher.classList.add('hidden');
             if (adminNavTabs) adminNavTabs.classList.add('hidden');
             
-            // Restart access timer when switching to driver mode
-            if (typeof accessConfig !== 'undefined' && !accessConfig.fullAccess) {
-                startAccessTimer();
+            // Check access control status when switching to driver mode
+            if (typeof checkAppAccessStatus === 'function') {
+                checkAppAccessStatus();
             }
             
             renderAppView();
         } else {
             btnModeDriver.classList.remove('active');
             btnModeAdmin.classList.add('active');
-            subBrandText.innerText = "Sistem Ritase Admin";
+            subBrandText.innerText = isAdministrator ? "Sistem Ritase Administrator" : "Sistem Ritase Admin";
             headerStatusIndicator.classList.add('hidden');
             
             formSection.classList.add('hidden');
@@ -2239,18 +2242,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderJobMonitorTable();
             renderAdminPanel();
             
-            // Stop access timer and remove overlays in admin mode
-            if (typeof stopAccessTimer === 'function') {
-                stopAccessTimer();
-            }
-            const _accessOverlay = document.getElementById('accessBlockedOverlay');
-            if (_accessOverlay && !IS_APP_BLOCKED) _accessOverlay.classList.add('hidden');
-            const _timerBadge = document.getElementById('accessTimerBadge');
-            if (_timerBadge) _timerBadge.classList.add('hidden');
-            
-            // Load access config UI for Preferences panel
+            // Load access config UI and check access status for Admin mode
             if (typeof loadAccessConfigUI === 'function') {
                 loadAccessConfigUI();
+            } else if (typeof checkAppAccessStatus === 'function') {
+                checkAppAccessStatus();
             }
         }
     }
@@ -2264,11 +2260,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isAdminLoggedIn) {
             switchMode('admin');
         } else {
-            openPinModal();
+            openPinModal('admin');
         }
     });
 
-    // Logo Multi-click Admin Access Handler
+    // Logo 7-Click Administrator Access Handler
     let logoClickCount = 0;
     let logoClickTimeout = null;
     
@@ -2281,21 +2277,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 logoClickCount = 0;
             }, 3000);
             
-            if (logoClickCount === 5) {
+            if (logoClickCount >= 3 && logoClickCount < 7) {
+                showToast(`Klik ${7 - logoClickCount}x lagi untuk Menu Administrator`, 'info');
+            } else if (logoClickCount === 7) {
                 logoClickCount = 0;
                 clearTimeout(logoClickTimeout);
                 
-                if (isAdminLoggedIn) {
+                if (isAdminLoggedIn && isAdministrator) {
+                    showToast("Anda sudah berada di Mode Administrator!", "info");
                     switchMode('admin');
                 } else {
-                    openPinModal();
+                    openPinModal('administrator');
                 }
             }
         });
     }
     
     // PIN Modal Actions
-    function openPinModal() {
+    function openPinModal(targetMode = 'admin') {
+        pinTargetMode = targetMode;
+        const pinTitle = document.getElementById('pinModalTitle');
+        const pinDesc = document.getElementById('pinModalDesc');
+        const pinHint = document.getElementById('pinModalHint');
+        
+        if (targetMode === 'administrator') {
+            if (pinTitle) pinTitle.innerText = "Verifikasi PIN Administrator";
+            if (pinDesc) pinDesc.innerText = "Masukkan 4-digit PIN untuk membuka Menu Administrator (Super Admin).";
+            if (pinHint) pinHint.innerText = "PIN bawaan Administrator: 7777";
+        } else {
+            if (pinTitle) pinTitle.innerText = "Verifikasi PIN Admin";
+            if (pinDesc) pinDesc.innerText = "Masukkan 4-digit PIN keamanan untuk masuk ke Menu Admin.";
+            if (pinHint) pinHint.innerText = "PIN bawaan Admin: 1234";
+        }
+        
         pinModal.classList.remove('hidden');
         pinInputs.forEach(input => input.value = '');
         setTimeout(() => pinInputs[0].focus(), 150);
@@ -2334,22 +2348,55 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function verifyAdminPIN() {
         const pinValue = pinInputs.map(inp => inp.value).join('');
-        if (pinValue === '1234') {
-            isAdminLoggedIn = true;
-            pinModal.classList.add('hidden');
-            showToast("Login Admin Berhasil!", "success");
-            
-            // Log admin access (once per session)
-            if (!hasLoggedAdminAccess) {
-                hasLoggedAdminAccess = true;
-                logAccess('Admin Panel');
+        
+        if (pinTargetMode === 'administrator') {
+            if (pinValue === '7777' || pinValue === '1234') {
+                isAdminLoggedIn = true;
+                isAdministrator = true;
+                pinModal.classList.add('hidden');
+                showToast("Login Administrator Berhasil! Mode Administrator Aktif.", "success");
+                
+                if (!hasLoggedAdminAccess) {
+                    hasLoggedAdminAccess = true;
+                    logAccess('Administrator Panel');
+                }
+                
+                switchMode('admin');
+            } else {
+                showToast("PIN Administrator salah! PIN bawaan: 7777", "error");
+                pinInputs.forEach(input => input.value = '');
+                pinInputs[0].focus();
             }
-            
-            switchMode('admin');
         } else {
-            showToast("PIN salah! PIN bawaan: 1234", "error");
-            pinInputs.forEach(input => input.value = '');
-            pinInputs[0].focus();
+            if (pinValue === '1234') {
+                isAdminLoggedIn = true;
+                isAdministrator = false;
+                pinModal.classList.add('hidden');
+                showToast("Login Admin Berhasil!", "success");
+                
+                if (!hasLoggedAdminAccess) {
+                    hasLoggedAdminAccess = true;
+                    logAccess('Admin Panel');
+                }
+                
+                switchMode('admin');
+            } else if (pinValue === '7777') {
+                isAdminLoggedIn = true;
+                isAdministrator = true;
+                pinModal.classList.add('hidden');
+                showToast("Login Administrator Berhasil!", "success");
+                
+                if (!hasLoggedAdminAccess) {
+                    hasLoggedAdminAccess = true;
+                    logAccess('Administrator Panel');
+                }
+                
+                switchMode('admin');
+            } else {
+                showToast("PIN salah! PIN bawaan: 1234", "error");
+                pinInputs.forEach(input => input.value = '');
+                pinInputs[0].focus();
+            }
         }
     }
     
@@ -3718,6 +3765,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (hash === '#performance' || hash === '#performa') {
+            if (!isAdministrator) {
+                showToast("Akses Terbatas: Tab Performa hanya untuk Administrator!", "warning");
+                window.location.hash = '#admin';
+                switchMode('admin');
+                return;
+            }
             formSection.classList.add('hidden');
             driverHistorySection.classList.add('hidden');
             adminPanel.classList.add('hidden');
@@ -3734,6 +3787,12 @@ document.addEventListener('DOMContentLoaded', () => {
             btnModeDriver.classList.remove('active');
             btnModeAdmin.classList.add('active'); // Keep Admin button active
         } else if (hash === '#preference' || hash === '#preferensi') {
+            if (!isAdministrator) {
+                showToast("Akses Terbatas: Tab Akses & Limit hanya untuk Administrator!", "warning");
+                window.location.hash = '#admin';
+                switchMode('admin');
+                return;
+            }
             formSection.classList.add('hidden');
             driverHistorySection.classList.add('hidden');
             adminPanel.classList.add('hidden');
@@ -3773,13 +3832,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabPreference = document.getElementById('tabAdminPreference');
         if (!tabDashboard || !tabPerformance || !tabPreference) return;
 
+        // Hide Performa and Akses & Limit if not Administrator
+        if (isAdministrator) {
+            tabPerformance.classList.remove('hidden');
+            tabPreference.classList.remove('hidden');
+        } else {
+            tabPerformance.classList.add('hidden');
+            tabPreference.classList.add('hidden');
+        }
+
         tabDashboard.classList.remove('active');
         tabPerformance.classList.remove('active');
         tabPreference.classList.remove('active');
 
-        if (hash === '#performance' || hash === '#performa') {
+        if ((hash === '#performance' || hash === '#performa') && isAdministrator) {
             tabPerformance.classList.add('active');
-        } else if (hash === '#preference' || hash === '#preferensi') {
+        } else if ((hash === '#preference' || hash === '#preferensi') && isAdministrator) {
             tabPreference.classList.add('active');
         } else {
             tabDashboard.classList.add('active');
@@ -4416,21 +4484,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // ACCESS CONTROL TIMER SYSTEM
+    // ACCESS CONTROL & APP LOCKDOWN SYSTEM
     // =========================================================================
 
     function loadAccessConfigUI() {
-        if (!toggleFullAccess) return;
-        toggleFullAccess.checked = accessConfig.fullAccess;
-        if (accessTimerMinutesInput) accessTimerMinutesInput.value = accessConfig.timerMinutes;
+        if (toggleAppBlock) {
+            toggleAppBlock.checked = !!accessConfig.isAppBlocked;
+        }
+        if (toggleFullAccess) {
+            toggleFullAccess.checked = !!accessConfig.fullAccess;
+        }
+        if (accessTimerMinutesInput) {
+            accessTimerMinutesInput.value = accessConfig.timerMinutes || 3;
+        }
 
         updateAccessStatusUI();
+        checkAppAccessStatus();
     }
 
     function updateAccessStatusUI() {
         if (!accessTimerConfig || !accessStatusInfo || !accessStatusText) return;
 
-        if (accessConfig.fullAccess) {
+        if (accessConfig.isAppBlocked) {
+            accessTimerConfig.style.display = 'none';
+            accessStatusInfo.style.background = 'rgba(239, 68, 68, 0.08)';
+            accessStatusInfo.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+            accessStatusInfo.style.color = '#f87171';
+            accessStatusText.innerText = 'BLOKIR TOTAL AKTIF: Seluruh pengguna biasa (Driver) diblokir. Hanya Administrator yang dapat menggunakan aplikasi.';
+        } else if (accessConfig.fullAccess) {
             accessTimerConfig.style.display = 'none';
             accessStatusInfo.style.background = 'rgba(16, 185, 129, 0.08)';
             accessStatusInfo.style.borderColor = 'rgba(16, 185, 129, 0.15)';
@@ -4445,23 +4526,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function checkAppAccessStatus() {
+        // Master App Lockdown evaluation
+        if (accessConfig.isAppBlocked) {
+            stopAccessTimer();
+            if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+
+            if (currentMode === 'admin') {
+                hideAccessBlockedOverlay();
+            } else {
+                showAccessBlockedOverlay('Akses Aplikasi Diblokir', 'Aplikasi ini sedang diblokir oleh Administrator.<br>Pengguna biasa (Driver) tidak dapat mengakses fitur aplikasi saat ini.');
+            }
+            return;
+        }
+
+        // Normal mode (Not blocked)
+        if (currentMode === 'admin') {
+            hideAccessBlockedOverlay();
+            stopAccessTimer();
+            if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+        } else {
+            // Driver mode
+            if (accessConfig.fullAccess) {
+                hideAccessBlockedOverlay();
+                stopAccessTimer();
+                if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
+            } else {
+                startAccessTimer();
+            }
+        }
+    }
+
+    // Toggle App Lockdown Handler
+    if (toggleAppBlock) {
+        toggleAppBlock.addEventListener('change', () => {
+            accessConfig.isAppBlocked = toggleAppBlock.checked;
+            localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+            updateAccessStatusUI();
+            checkAppAccessStatus();
+
+            if (accessConfig.isAppBlocked) {
+                showToast('Aplikasi DIBLOKIR TOTAL! Pengguna biasa (Driver) tidak dapat lagi mengakses aplikasi.', 'error');
+            } else {
+                showToast('Blokir aplikasi dibuka! Pengguna biasa kembali mendapatkan akses.', 'success');
+            }
+
+            // Sync to Firestore if available
+            if (isFirebaseConfigured && db) {
+                setDoc(doc(db, "app_config", "access_control"), accessConfig).catch(err => {
+                    console.error("Error syncing access config:", err);
+                });
+            }
+        });
+    }
+
     // Toggle full access handler
     if (toggleFullAccess) {
         toggleFullAccess.addEventListener('change', () => {
             accessConfig.fullAccess = toggleFullAccess.checked;
             localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
             updateAccessStatusUI();
+            checkAppAccessStatus();
 
             if (accessConfig.fullAccess) {
-                // Immediately remove any access block
-                stopAccessTimer();
-                if (accessBlockedOverlay && !IS_APP_BLOCKED) accessBlockedOverlay.classList.add('hidden');
-                if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
                 showToast('Full Akses diaktifkan! Pengguna dapat menggunakan aplikasi tanpa batas waktu.', 'success');
             } else {
-                // Restart timer from now
                 localStorage.setItem(SESSION_KEY_START, Date.now().toString());
-                startAccessTimer();
                 showToast(`Akses dibatasi! Pengguna memiliki ${accessConfig.timerMinutes} menit.`, 'warning');
             }
 
@@ -4486,13 +4616,9 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
             updateAccessStatusUI();
 
-            // Restart timer with new duration
             localStorage.setItem(SESSION_KEY_START, Date.now().toString());
-            if (!accessConfig.fullAccess) {
-                startAccessTimer();
-            }
+            checkAppAccessStatus();
 
-            // Sync to Firestore if available
             if (isFirebaseConfigured && db) {
                 setDoc(doc(db, "app_config", "access_control"), accessConfig).catch(err => {
                     console.error("Error syncing access config:", err);
@@ -4510,19 +4636,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startAccessTimer() {
-        if (IS_APP_BLOCKED) {
-            if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
-            if (accessBlockedOverlay) accessBlockedOverlay.classList.remove('hidden');
+        if (accessConfig.isAppBlocked) {
+            checkAppAccessStatus();
             return;
         }
-        // Don't run timer if full access is enabled or in admin mode or no driver logged in
         if (accessConfig.fullAccess || currentMode === 'admin' || !currentDriver) {
             if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
-            if (accessBlockedOverlay) accessBlockedOverlay.classList.add('hidden');
+            hideAccessBlockedOverlay();
             return;
         }
 
-        // Get or set session start time in localStorage for persistence across app closures
         let sessionStart = parseInt(localStorage.getItem(SESSION_KEY_START));
         if (!sessionStart || isNaN(sessionStart)) {
             sessionStart = Date.now();
@@ -4530,11 +4653,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const totalMs = accessConfig.timerMinutes * 60 * 1000;
-
-        // Clear any existing timer
         stopAccessTimer();
 
-        // Show floating badge
         if (accessTimerBadge) accessTimerBadge.classList.remove('hidden');
 
         accessTimerInterval = setInterval(() => {
@@ -4542,10 +4662,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const remaining = Math.max(0, totalMs - elapsed);
             const remainingSec = Math.ceil(remaining / 1000);
 
-            // Update floating badge
             if (floatingTimerText) floatingTimerText.innerText = formatCountdown(remainingSec);
 
-            // Urgent state when < 60s
             if (accessTimerBadge) {
                 if (remainingSec <= 60 && remainingSec > 0) {
                     accessTimerBadge.classList.add('urgent');
@@ -4554,19 +4672,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Timer expired!
             if (remaining <= 0) {
                 stopAccessTimer();
-                showAccessBlockedOverlay();
+                showAccessBlockedOverlay('Waktu Akses Habis', 'Waktu trial Anda telah berakhir. Silakan hubungi Administrator untuk memperpanjang akses.');
             }
         }, 1000);
 
-        // Initial immediate check
         const elapsed = Date.now() - sessionStart;
         const remaining = Math.max(0, totalMs - elapsed);
         if (remaining <= 0) {
             stopAccessTimer();
-            showAccessBlockedOverlay();
+            showAccessBlockedOverlay('Waktu Akses Habis', 'Waktu trial Anda telah berakhir. Silakan hubungi Administrator untuk memperpanjang akses.');
         } else {
             const remainingSec = Math.ceil(remaining / 1000);
             if (floatingTimerText) floatingTimerText.innerText = formatCountdown(remainingSec);
@@ -4580,18 +4696,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function showAccessBlockedOverlay() {
+    function showAccessBlockedOverlay(title, desc) {
+        if (accessBlockedOverlay) {
+            const titleEl = document.getElementById('blockedOverlayTitle');
+            const descEl = document.getElementById('blockedOverlayDesc');
+            if (titleEl && title) titleEl.innerText = title;
+            if (descEl && desc) descEl.innerHTML = desc;
+
+            accessBlockedOverlay.classList.remove('hidden');
+            accessBlockedOverlay.style.display = 'flex';
+        }
+    }
+
+    function hideAccessBlockedOverlay() {
         if (accessBlockedOverlay) {
             accessBlockedOverlay.classList.add('hidden');
             accessBlockedOverlay.style.display = 'none';
         }
-        return;
     }
 
-    // Wire unlock admin button inside access blocked overlay
-    if (btnUnlockAdminMode) {
-        btnUnlockAdminMode.addEventListener('click', () => {
-            openPinModal();
+    // Secret 7-click shortcut on lock icon to open Administrator login PIN
+    let lockClickCount = 0;
+    let lockClickTimer = null;
+    const blockedLockIcon = document.getElementById('blockedLockIcon');
+
+    if (blockedLockIcon) {
+        blockedLockIcon.addEventListener('click', () => {
+            lockClickCount++;
+
+            if (lockClickTimer) clearTimeout(lockClickTimer);
+            
+            // Reset counter if user stops clicking for 2.5 seconds
+            lockClickTimer = setTimeout(() => {
+                lockClickCount = 0;
+            }, 2500);
+
+            if (lockClickCount >= 7) {
+                lockClickCount = 0;
+                clearTimeout(lockClickTimer);
+                showToast("Akses Rahasia Administrator Terbuka!", "info");
+                openPinModal('administrator');
+            } else if (lockClickCount >= 3) {
+                const remaining = 7 - lockClickCount;
+                showToast(`${remaining}x klik lagi untuk masuk Administrator...`, "warning");
+            }
         });
     }
 
@@ -4600,16 +4748,9 @@ document.addEventListener('DOMContentLoaded', () => {
         onSnapshot(doc(db, "app_config", "access_control"), (docSnap) => {
             if (docSnap.exists()) {
                 const cloudConfig = docSnap.data();
-                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig, fullAccess: true };
+                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig };
                 localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
                 loadAccessConfigUI();
-
-                stopAccessTimer();
-                if (accessBlockedOverlay) {
-                    accessBlockedOverlay.classList.add('hidden');
-                    accessBlockedOverlay.style.display = 'none';
-                }
-                if (accessTimerBadge) accessTimerBadge.classList.add('hidden');
             }
         }, (err) => {
             console.error("Firestore access config sync error:", err);
@@ -4618,9 +4759,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize access control
     loadAccessConfigUI();
-
-    if (accessBlockedOverlay) {
-        accessBlockedOverlay.classList.add('hidden');
-        accessBlockedOverlay.style.display = 'none';
-    }
 });

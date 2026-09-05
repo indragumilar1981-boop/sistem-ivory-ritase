@@ -1639,13 +1639,13 @@ input::placeholder {
    ACCESS CONTROL - BLOCKED OVERLAY
    ========================================================================== */
 .access-blocked-overlay {
-    display: none !important;
+    display: flex;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(7, 11, 19, 0.92);
+    background: rgba(7, 11, 19, 0.94);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     z-index: 9999;
@@ -1656,7 +1656,7 @@ input::placeholder {
 }
 
 .access-blocked-overlay.hidden {
-    display: none;
+    display: none !important;
 }
 
 @keyframes overlayFadeIn {
@@ -1842,6 +1842,10 @@ input::placeholder {
 }
 
 .admin-nav-tabs.hidden {
+    display: none !important;
+}
+
+.admin-nav-tab.hidden {
     display: none !important;
 }
 
