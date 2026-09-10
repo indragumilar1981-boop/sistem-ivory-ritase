@@ -438,9 +438,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (key === STORAGE_KEY_HISTORY) {
                 if (parsedVal.length === 0) {
                     const querySnap = await getDocs(collection(db, "trip_history"));
-                    querySnap.forEach(async (docSnap) => {
+                    for (const docSnap of querySnap.docs) {
                         await deleteDoc(doc(db, "trip_history", docSnap.id));
-                    });
+                    }
                 } else {
                     for (let trip of parsedVal) {
                         if (trip.endTime) {
@@ -452,11 +452,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (key === STORAGE_KEY_MASTER) {
                 const localNopols = parsedVal.map(t => t.nopol.replace(/\s+/g, '_'));
                 const querySnap = await getDocs(collection(db, "master_tanki"));
-                querySnap.forEach(async (docSnap) => {
+                for (const docSnap of querySnap.docs) {
                     if (!localNopols.includes(docSnap.id)) {
                         await deleteDoc(doc(db, "master_tanki", docSnap.id));
                     }
-                });
+                }
                 for (let tanki of parsedVal) {
                     const docId = tanki.nopol.replace(/\s+/g, '_');
                     await setDoc(doc(db, "master_tanki", docId), tanki);
@@ -464,11 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (key === STORAGE_KEY_AMT) {
                 const localNames = parsedVal.map(amt => amt.name.replace(/\s+/g, '_'));
                 const querySnap = await getDocs(collection(db, "master_amt"));
-                querySnap.forEach(async (docSnap) => {
+                for (const docSnap of querySnap.docs) {
                     if (!localNames.includes(docSnap.id)) {
                         await deleteDoc(doc(db, "master_amt", docSnap.id));
                     }
-                });
+                }
                 for (let amt of parsedVal) {
                     const docId = amt.name.replace(/\s+/g, '_');
                     await setDoc(doc(db, "master_amt", docId), amt);
@@ -478,9 +478,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (key === STORAGE_KEY_JOBS) {
                 if (parsedVal.length === 0) {
                     const querySnap = await getDocs(collection(db, "job_assignments"));
-                    querySnap.forEach(async (docSnap) => {
+                    for (const docSnap of querySnap.docs) {
                         await deleteDoc(doc(db, "job_assignments", docSnap.id));
-                    });
+                    }
                 } else {
                     for (let job of parsedVal) {
                         if (job.id) {
