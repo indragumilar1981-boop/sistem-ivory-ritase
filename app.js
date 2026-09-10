@@ -3094,7 +3094,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const status = getAmtStatus(amt.name);
             let statusBadge = '';
             if (status === 'working') {
-                statusBadge = `<span class="amt-status-badge amt-status-working"><span class="amt-status-dot working"></span>Bekerja</span>`;
+                statusBadge = `<span class="amt-status-badge amt-status-working" style="cursor:pointer;" onclick="window.viewAmtActiveJob('${amt.name.replace(/'/g, "\\'")}')" title="Lihat detail pekerjaan"><span class="amt-status-dot working"></span>Bekerja</span>`;
             } else if (status === 'online') {
                 statusBadge = `<span class="amt-status-badge amt-status-online"><span class="amt-status-dot online"></span>Online</span>`;
             } else {
@@ -4896,4 +4896,85 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize access control
     loadAccessConfigUI();
     hideAccessBlockedOverlay();
+
+    window.viewAmtActiveJob = function(amtName) {
+        let trip = firebaseActiveTrips.find(t => t.namaAMT1 === amtName || t.namaAMT2 === amtName);
+        if (!trip && activeTrip && (activeTrip.namaAMT1 === amtName || activeTrip.namaAMT2 === amtName)) {
+            trip = activeTrip;
+        }
+        
+        const detailsModal = document.getElementById('detailsModal');
+        const modalBody = document.getElementById('modalBody');
+        const modalTitle = document.getElementById('modalTitle');
+        
+        if (trip) {
+            const startDt = new Date(trip.startTime);
+            modalTitle.innerText = "Detail Pengiriman (Berlangsung)";
+            modalBody.innerHTML = `
+                <div class="detail-sec">
+                    <div class="detail-sec-title">Informasi Pengiriman</div>
+                    <div class="detail-row">
+                        <span class="lbl">No. Polisi:</span>
+                        <span class="val" style="font-weight:700;">${trip.noPolisi}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="lbl">Tujuan:</span>
+                        <span class="val">${trip.tujuan} (${trip.kotaTujuan || '-'})</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="lbl">Produk:</span>
+                        <span class="val">${trip.jenisProduk || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="lbl">Waktu Mulai:</span>
+                        <span class="val">${startDt.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="lbl">AMT Bertugas:</span>
+                        <span class="val">${trip.namaAMT1} (AMT 1) &bull; ${trip.namaAMT2} (AMT 2)</span>
+                    </div>
+                </div>
+                ${trip.fotoTBBM ? `
+                <div class="detail-sec">
+                    <div class="detail-sec-title">Foto Keberangkatan</div>
+                    <div style="display:flex; gap:10px;">
+                        <img src="${trip.fotoTBBM}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; cursor:pointer;" onclick="window.open(this.src)">
+                        ${trip.fotoWajahMulai ? `<img src="${trip.fotoWajahMulai}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; cursor:pointer;" onclick="window.open(this.src)">` : ''}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        } else {
+            const job = jobAssignments.find(j => j.status === 'active' && j.driverName === amtName);
+            if (job) {
+                modalTitle.innerText = "Detail Penugasan (Belum Jalan)";
+                modalBody.innerHTML = `
+                    <div class="detail-sec">
+                        <div class="detail-sec-title">Informasi Penugasan</div>
+                        <div class="detail-row">
+                            <span class="lbl">Tujuan:</span>
+                            <span class="val" style="font-weight:bold;">${job.spbuName} (${job.kota})</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="lbl">Produk:</span>
+                            <span class="val">${job.product || '-'}</span>
+                        </div>
+                        <div class="detail-row" style="margin-top:10px;">
+                            <span class="lbl" style="width:100%; color:var(--warning-color); font-weight:bold; font-size:12px;">Driver belum memulai perjalanan (Menunggu di Dashboard Driver)</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                modalTitle.innerText = "Detail Status";
+                modalBody.innerHTML = `<div style="padding:20px; text-align:center;">Data pekerjaan tidak ditemukan atau terputus.</div>`;
+            }
+        }
+        
+        const gpsSection = document.getElementById('modalGpsSection');
+        if (gpsSection) gpsSection.classList.add('hidden');
+        const deviceSection = document.getElementById('modalDeviceSection');
+        if (deviceSection) deviceSection.classList.add('hidden');
+        
+        detailsModal.classList.remove('hidden');
+    };
 });
