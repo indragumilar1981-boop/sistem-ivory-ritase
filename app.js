@@ -4213,7 +4213,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const logoutDriverName = currentDriver ? currentDriver.name : null;
                 currentDriver = null;
                 localStorage.removeItem(STORAGE_KEY_ACTIVE_USER);
-                document.getElementById('selectedJobId').value = '';
+                const selectedJobIdEl = document.getElementById('selectedJobId');
+                if (selectedJobIdEl) selectedJobIdEl.value = '';
                 if (logoutDriverName) removeDriverSession(logoutDriverName);
                 
                 // Stop access timer on driver logout
