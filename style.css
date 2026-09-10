@@ -75,15 +75,86 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ==========================================================================
-   LAYOUT CONTAINERS
+   LAYOUT CONTAINERS - RESPONSIVE
    ========================================================================== */
 .app-container {
     width: 100%;
-    max-width: 520px; /* Mobile-focused layout */
+    max-width: 520px; /* Mobile default */
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+/* Tablet: 640px+ */
+@media (min-width: 640px) {
+    body {
+        padding: 20px 24px;
+        align-items: flex-start;
+    }
+    .app-container {
+        max-width: 620px;
+        gap: 22px;
+    }
+}
+
+/* Laptop/Desktop: 1024px+ */
+@media (min-width: 1024px) {
+    body {
+        padding: 24px 40px;
+    }
+    .app-container {
+        max-width: 1280px;
+        gap: 24px;
+    }
+    /* Header stretches full width on desktop */
+    .app-header {
+        padding: 14px 8px;
+    }
+    .brand-name h1 {
+        font-size: 20px;
+    }
+    /* Admin sections use 2-column grid on desktop */
+    .admin-two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+    .admin-three-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+    /* Driver form stays capped at 700px on desktop, centered */
+    #formSection {
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    /* Admin panel fills full width */
+    #adminPanel, #performanceSection, #preferenceSection {
+        max-width: 100%;
+    }
+    /* Wider table layout */
+    .history-section {
+        max-width: 100%;
+    }
+    /* Larger card padding */
+    .card {
+        padding: 28px 32px;
+    }
+}
+
+/* Large Desktop: 1400px+ */
+@media (min-width: 1400px) {
+    body {
+        padding: 28px 60px;
+    }
+    .app-container {
+        max-width: 1440px;
+    }
 }
 
 .app-header {
@@ -1077,10 +1148,25 @@ input::placeholder {
 /* Admin Dashboard Stats Grid */
 .admin-stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
     margin-top: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
+}
+
+@media (min-width: 480px) {
+    .admin-stats-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .admin-stats-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+    }
 }
 
 .stat-card {
@@ -1302,6 +1388,42 @@ input::placeholder {
     padding-right: 4px;
 }
 
+@media (min-width: 1024px) {
+    /* Active trips side by side on desktop */
+    .active-trips-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        align-items: start;
+    }
+    /* History list taller & 2-col on desktop */
+    .admin-history-list {
+        max-height: 600px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: start;
+    }
+    /* Active card body - 4 columns on desktop */
+    .active-card-body {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+    /* Admin section block - larger heading */
+    .block-header h3 {
+        font-size: 16px;
+    }
+    .block-header-split h3 {
+        font-size: 16px;
+    }
+    /* Admin 2-col sections */
+    .admin-section-two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+}
+
 .admin-footer-actions {
     margin-top: 8px;
     border-top: 1px solid rgba(255,255,255,0.05);
@@ -1508,13 +1630,13 @@ input::placeholder {
     display: none !important;
 }
 
-/* Responsive adjustments */
+/* Responsive adjustments - Small Mobile */
 @media (max-width: 480px) {
     body {
         padding: 8px;
     }
     .card {
-        padding: 18px;
+        padding: 16px;
     }
     .form-grid {
         grid-template-columns: 1fr;
@@ -1524,6 +1646,65 @@ input::placeholder {
     }
     .form-actions-split {
         grid-template-columns: 1fr;
+    }
+    /* Stack admin nav tabs on tiny screens */
+    .admin-nav-tabs {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .admin-nav-tab {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+    /* Smaller stat cards on tiny screen */
+    .stat-card {
+        padding: 10px 8px;
+    }
+    .stat-value {
+        font-size: 18px;
+    }
+}
+
+/* Tablet Adjustments */
+@media (min-width: 640px) and (max-width: 1023px) {
+    .admin-nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+}
+
+/* Desktop-specific admin enhancements */
+@media (min-width: 1024px) {
+    /* Admin nav tabs fill wider space */
+    .admin-nav-tabs {
+        padding: 8px;
+        gap: 8px;
+    }
+    .admin-nav-tab {
+        padding: 12px 22px;
+        font-size: 14px;
+    }
+    /* Stat cards bigger on desktop */
+    .stat-card {
+        padding: 18px 12px;
+    }
+    .stat-value {
+        font-size: 26px;
+    }
+    .stat-label {
+        font-size: 11px;
+    }
+    /* Master table wider */
+    .master-list-table-container {
+        max-height: none;
+    }
+    /* Search filter wider */
+    .search-filter-wrapper {
+        max-width: 340px;
+    }
+    /* Admin header bigger */
+    .admin-header h2 {
+        font-size: 26px;
     }
 }
 
