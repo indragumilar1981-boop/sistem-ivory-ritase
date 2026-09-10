@@ -2281,7 +2281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Logo 5-Click Secret Administrator Access Handler
+    // Logo 5-Click Secret Admin Access Handler
     let logoClickCount = 0;
     let logoClickTimeout = null;
     
@@ -2294,17 +2294,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 logoClickCount = 0;
             }, 2500);
             
-            if (logoClickCount >= 3 && logoClickCount < 5) {
-                showToast(`Klik ${5 - logoClickCount}x lagi untuk Mode Administrator`, 'info');
-            } else if (logoClickCount >= 5) {
+            if (logoClickCount >= 5) {
                 logoClickCount = 0;
                 clearTimeout(logoClickTimeout);
                 
-                if (isAdminLoggedIn && isAdministrator) {
-                    showToast("Anda sudah berada di Mode Administrator!", "info");
+                if (isAdminLoggedIn) {
                     switchMode('admin');
                 } else {
-                    openPinModal('administrator');
+                    openPinModal('admin');
                 }
             }
         });
@@ -2319,13 +2316,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (targetMode === 'administrator') {
             if (pinTitle) pinTitle.innerText = "Verifikasi PIN Administrator";
-            if (pinDesc) pinDesc.innerText = "Masukkan 4-digit PIN untuk membuka Menu Administrator (Super Admin).";
-            if (pinHint) pinHint.innerText = "PIN bawaan Administrator: 7777";
+            if (pinDesc) pinDesc.innerText = "Masukkan 4-digit PIN untuk membuka Menu Administrator.";
         } else {
             if (pinTitle) pinTitle.innerText = "Verifikasi PIN Admin";
             if (pinDesc) pinDesc.innerText = "Masukkan 4-digit PIN keamanan untuk masuk ke Menu Admin.";
-            if (pinHint) pinHint.innerText = "PIN bawaan Admin: 1234";
         }
+        
+        // Always hide PIN hint - no PIN info exposed to users
+        if (pinHint) pinHint.classList.add('hidden');
         
         pinModal.classList.remove('hidden');
         pinInputs.forEach(input => input.value = '');
