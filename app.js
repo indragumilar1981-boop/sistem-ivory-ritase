@@ -4156,8 +4156,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         stopFaceScanStream();
                         btnStartFaceScan.disabled = false;
                         
-                        // Simulasi pengenalan wajah: mendeteksi acak dari database
-                        const driver = masterAmt[Math.floor(Math.random() * masterAmt.length)];
+                        // Simulasi pengenalan wajah: memprioritaskan data driver yang terakhir kali ditambahkan / diupdate
+                        // agar foto yang baru diambil di master data langsung muncul sebagai referensi di dashboard driver
+                        const driver = masterAmt.length > 0 ? masterAmt[masterAmt.length - 1] : null;
                         if (driver) {
                             currentDriver = driver;
                             localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
@@ -4181,8 +4182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         stopFaceScanStream();
                         btnStartFaceScan.disabled = false;
                         
-                        // Simulasi pengenalan wajah: mendeteksi acak dari database
-                        const driver = masterAmt[Math.floor(Math.random() * masterAmt.length)];
+                        // Simulasi pengenalan wajah: memprioritaskan data driver yang terakhir kali ditambahkan / diupdate
+                        // agar foto yang baru diambil di master data langsung muncul sebagai referensi di dashboard driver
+                        const driver = masterAmt.length > 0 ? masterAmt[masterAmt.length - 1] : null;
                         if (driver) {
                             currentDriver = driver;
                             localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
