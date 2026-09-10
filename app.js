@@ -4110,12 +4110,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnStartFaceScan) {
         btnStartFaceScan.addEventListener('click', () => {
-            const selectedDriverName = loginFaceSelect.value;
-            if (!selectedDriverName) {
-                showToast("Harap pilih driver terlebih dahulu!", "error");
-                return;
-            }
-            
             btnStartFaceScan.disabled = true;
             
             const overlay = document.getElementById('faceScanOverlayBar');
@@ -4162,7 +4156,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         stopFaceScanStream();
                         btnStartFaceScan.disabled = false;
                         
-                        const driver = masterAmt.find(amt => amt.name === selectedDriverName);
+                        // Simulasi pengenalan wajah: mendeteksi acak dari database
+                        const driver = masterAmt[Math.floor(Math.random() * masterAmt.length)];
                         if (driver) {
                             currentDriver = driver;
                             localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
@@ -4186,7 +4181,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         stopFaceScanStream();
                         btnStartFaceScan.disabled = false;
                         
-                        const driver = masterAmt.find(amt => amt.name === selectedDriverName);
+                        // Simulasi pengenalan wajah: mendeteksi acak dari database
+                        const driver = masterAmt[Math.floor(Math.random() * masterAmt.length)];
                         if (driver) {
                             currentDriver = driver;
                             localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
