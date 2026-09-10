@@ -453,26 +453,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } else if (key === STORAGE_KEY_MASTER) {
-                const newNopols = parsedVal.map(t => t.nopol.replace(/\s+/g, '_'));
-                const oldNopols = (Array.isArray(oldVal) ? oldVal : []).map(t => t.nopol.replace(/\s+/g, '_'));
-                const deletedNopols = oldNopols.filter(n => !newNopols.includes(n));
-                for (const docId of deletedNopols) {
-                    await deleteDoc(doc(db, "master_tanki", docId));
+                const newIds = parsedVal.map(t => t._id || t.nopol.replace(/\s+/g, '_'));
+                const oldArray = Array.isArray(oldVal) ? oldVal : [];
+                
+                for (const old of oldArray) {
+                    const oldId = old._id || old.nopol.replace(/\s+/g, '_');
+                    if (!newIds.includes(oldId)) {
+                        await deleteDoc(doc(db, "master_tanki", oldId));
+                    }
                 }
                 for (let tanki of parsedVal) {
-                    const docId = tanki.nopol.replace(/\s+/g, '_');
-                    await setDoc(doc(db, "master_tanki", docId), tanki);
+                    const docId = tanki._id || tanki.nopol.replace(/\s+/g, '_');
+                    const dataToSave = { ...tanki };
+                    delete dataToSave._id;
+                    await setDoc(doc(db, "master_tanki", docId), dataToSave);
                 }
             } else if (key === STORAGE_KEY_AMT) {
-                const newNames = parsedVal.map(amt => amt.name.replace(/\s+/g, '_'));
-                const oldNames = (Array.isArray(oldVal) ? oldVal : []).map(amt => amt.name.replace(/\s+/g, '_'));
-                const deletedNames = oldNames.filter(n => !newNames.includes(n));
-                for (const docId of deletedNames) {
-                    await deleteDoc(doc(db, "master_amt", docId));
+                const newIds = parsedVal.map(amt => amt._id || amt.name.replace(/\s+/g, '_'));
+                const oldArray = Array.isArray(oldVal) ? oldVal : [];
+                
+                for (const old of oldArray) {
+                    const oldId = old._id || old.name.replace(/\s+/g, '_');
+                    if (!newIds.includes(oldId)) {
+                        await deleteDoc(doc(db, "master_amt", oldId));
+                    }
                 }
                 for (let amt of parsedVal) {
-                    const docId = amt.name.replace(/\s+/g, '_');
-                    await setDoc(doc(db, "master_amt", docId), amt);
+                    const docId = amt._id || amt.name.replace(/\s+/g, '_');
+                    const dataToSave = { ...amt };
+                    delete dataToSave._id;
+                    await setDoc(doc(db, "master_amt", docId), dataToSave);
                 }
             } else if (key === STORAGE_KEY_RATES) {
                 await setDoc(doc(db, "rates_settings", "default"), parsedVal);
@@ -568,7 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
         unsubscribeMasterTanki = onSnapshot(collection(db, "master_tanki"), (querySnap) => {
             const list = [];
             querySnap.forEach(docSnap => {
-                list.push(docSnap.data());
+                const data = docSnap.data();
+                data._id = docSnap.id;
+                list.push(data);
             });
             isSyncing = true;
             masterTanki = list;
@@ -586,7 +598,9 @@ document.addEventListener('DOMContentLoaded', () => {
         unsubscribeMasterAmt = onSnapshot(collection(db, "master_amt"), (querySnap) => {
             const list = [];
             querySnap.forEach(docSnap => {
-                list.push(docSnap.data());
+                const data = docSnap.data();
+                data._id = docSnap.id;
+                list.push(data);
             });
             isSyncing = true;
             masterAmt = list;
@@ -2945,7 +2959,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (editingMasterIndex !== null) {
             // Update
+            const existingId = masterTanki[editingMasterIndex]._id;
             masterTanki[editingMasterIndex] = { nopol: nopolVal, kapasitas: kapasitasVal };
+            if (existingId) masterTanki[editingMasterIndex]._id = existingId;
             showToast(`Mobil Tanki ${nopolVal} berhasil diperbarui!`, "success");
         } else {
             // Create
@@ -3247,7 +3263,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (editingAmtIndex !== null) {
             // Update
+            const existingId = masterAmt[editingAmtIndex]._id;
             masterAmt[editingAmtIndex] = { name: namaVal, jabatan: jabatanVal, foto: fotoVal, noTlp: noTlpVal };
+            if (existingId) masterAmt[editingAmtIndex]._id = existingId;
             showToast(`Data AMT ${namaVal} berhasil diperbarui!`, "success");
         } else {
             // Create
