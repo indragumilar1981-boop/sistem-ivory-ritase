@@ -426,10 +426,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function pushItemToFirestore(key, value) {
+    async function pushItemToFirestore(key, value, oldValue = null) {
         if (!isFirebaseConfigured || !db) return;
         try {
             const parsedVal = JSON.parse(value);
+            const oldVal = oldValue ? JSON.parse(oldValue) : [];
             if (key === STORAGE_KEY_ACTIVE) {
                 if (parsedVal) {
                     const docId = parsedVal.noPolisi.replace(/\s+/g, '_');
@@ -437,9 +438,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (key === STORAGE_KEY_HISTORY) {
                 if (parsedVal.length === 0) {
-                    const querySnap = await getDocs(collection(db, "trip_history"));
-                    for (const docSnap of querySnap.docs) {
-                        await deleteDoc(doc(db, "trip_history", docSnap.id));
+                    for (const trip of oldVal) {
+                        if (trip.endTime) {
+                            const docId = trip.endTime.replace(/[:.]/g, '_');
+                            await deleteDoc(doc(db, "trip_history", docId));
+                        }
                     }
                 } else {
                     for (let trip of parsedVal) {
@@ -450,24 +453,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } else if (key === STORAGE_KEY_MASTER) {
-                const localNopols = parsedVal.map(t => t.nopol.replace(/\s+/g, '_'));
-                const querySnap = await getDocs(collection(db, "master_tanki"));
-                for (const docSnap of querySnap.docs) {
-                    if (!localNopols.includes(docSnap.id)) {
-                        await deleteDoc(doc(db, "master_tanki", docSnap.id));
-                    }
+                const newNopols = parsedVal.map(t => t.nopol.replace(/\s+/g, '_'));
+                const oldNopols = (Array.isArray(oldVal) ? oldVal : []).map(t => t.nopol.replace(/\s+/g, '_'));
+                const deletedNopols = oldNopols.filter(n => !newNopols.includes(n));
+                for (const docId of deletedNopols) {
+                    await deleteDoc(doc(db, "master_tanki", docId));
                 }
                 for (let tanki of parsedVal) {
                     const docId = tanki.nopol.replace(/\s+/g, '_');
                     await setDoc(doc(db, "master_tanki", docId), tanki);
                 }
             } else if (key === STORAGE_KEY_AMT) {
-                const localNames = parsedVal.map(amt => amt.name.replace(/\s+/g, '_'));
-                const querySnap = await getDocs(collection(db, "master_amt"));
-                for (const docSnap of querySnap.docs) {
-                    if (!localNames.includes(docSnap.id)) {
-                        await deleteDoc(doc(db, "master_amt", docSnap.id));
-                    }
+                const newNames = parsedVal.map(amt => amt.name.replace(/\s+/g, '_'));
+                const oldNames = (Array.isArray(oldVal) ? oldVal : []).map(amt => amt.name.replace(/\s+/g, '_'));
+                const deletedNames = oldNames.filter(n => !newNames.includes(n));
+                for (const docId of deletedNames) {
+                    await deleteDoc(doc(db, "master_amt", docId));
                 }
                 for (let amt of parsedVal) {
                     const docId = amt.name.replace(/\s+/g, '_');
@@ -477,9 +478,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 await setDoc(doc(db, "rates_settings", "default"), parsedVal);
             } else if (key === STORAGE_KEY_JOBS) {
                 if (parsedVal.length === 0) {
-                    const querySnap = await getDocs(collection(db, "job_assignments"));
-                    for (const docSnap of querySnap.docs) {
-                        await deleteDoc(doc(db, "job_assignments", docSnap.id));
+                    for (const job of oldVal) {
+                        if (job.id) {
+                            await deleteDoc(doc(db, "job_assignments", job.id));
+                        }
                     }
                 } else {
                     for (let job of parsedVal) {
@@ -508,10 +510,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Monkey patch localStorage to automatically push to Firestore on updates
     const originalSetItem = localStorage.setItem;
     localStorage.setItem = function(key, value) {
+        const oldValue = localStorage.getItem(key);
         originalSetItem.apply(this, arguments);
         if (!isSyncing && (key === STORAGE_KEY_ACTIVE || key === STORAGE_KEY_HISTORY || key === STORAGE_KEY_MASTER || key === STORAGE_KEY_AMT || key === STORAGE_KEY_RATES || key === STORAGE_KEY_JOBS)) {
             if (isFirebaseConfigured && db) {
-                pushItemToFirestore(key, value);
+                pushItemToFirestore(key, value, oldValue);
             }
         }
     };
