@@ -38,10 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_ACCESS_CONFIG = {
         isAppBlocked: false,
         fullAccess: true,
-        timerMinutes: 3
+        timerMinutes: 60
     };
     let accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...JSON.parse(localStorage.getItem(STORAGE_KEY_ACCESS_CONFIG) || '{}') };
+    // Force permanent full access & clear old trial blocks
+    accessConfig.fullAccess = true;
+    accessConfig.isAppBlocked = false;
     localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+    localStorage.setItem(SESSION_KEY_START, Date.now().toString());
     let accessTimerInterval = null;
 
     let hasLoggedDriverAccess = false;
@@ -361,8 +365,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnFotoAmt = document.getElementById('btnFotoAmt');
     const previewAmtFoto = document.getElementById('previewAmtFoto');
     const btnSubmitAmt = document.getElementById('btnSubmitAmt');
-    const btnCancelAmtEdit = document.getElementById('btnCancelAmtEdit');
     const adminAmtTbody = document.getElementById('adminAmtTbody');
+    const amtSearchInput = document.getElementById('amtSearchInput');
+    const amtFilterJabatan = document.getElementById('amtFilterJabatan');
+    const amtFilterStatus = document.getElementById('amtFilterStatus');
+    const amtResetFilterBtn = document.getElementById('amtResetFilterBtn');
+    const amtFormModeTitle = document.getElementById('amtFormModeTitle');
+    const amtStatTotal = document.getElementById('amtStatTotal');
+    const amtStatAmt1 = document.getElementById('amtStatAmt1');
+    const amtStatAmt2 = document.getElementById('amtStatAmt2');
+    const amtStatWorking = document.getElementById('amtStatWorking');
     
     // Modal
     const detailsModal = document.getElementById('detailsModal');
@@ -1259,25 +1271,36 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTrip = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE)) || null;
         tripHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || [];
         jobAssignments = JSON.parse(localStorage.getItem(STORAGE_KEY_JOBS)) || [];
+        currentDriver = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVE_USER)) || null;
         
+        // Auto-restore driver session if active trip exists but driver session is missing
+        if (!currentDriver && activeTrip && activeTrip.namaAMT1) {
+            const matchedAmt = (masterAmt || []).find(a => a.name === activeTrip.namaAMT1);
+            currentDriver = {
+                name: activeTrip.namaAMT1,
+                foto: matchedAmt ? matchedAmt.foto : createAmtMockSvg(activeTrip.namaAMT1, "AMT 1")
+            };
+            localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
+        }
+
+        const loginBox = document.getElementById('driverLoginContainer');
+        const dashBox = document.getElementById('driverDashboardContainer');
+
         // Hide all steps by default
-        step1Panel.classList.add('hidden');
-        step2Panel.classList.add('hidden');
-        step3Panel.classList.add('hidden');
+        if (step1Panel) step1Panel.classList.add('hidden');
+        if (step2Panel) step2Panel.classList.add('hidden');
+        if (step3Panel) step3Panel.classList.add('hidden');
         
         // Enforce Driver Login first if in driver mode
         if (currentMode === 'driver' && !currentDriver) {
-            step1Panel.classList.remove('hidden');
-            document.getElementById('driverLoginContainer').classList.remove('hidden');
-            document.getElementById('driverDashboardContainer').classList.add('hidden');
-            document.getElementById('step1FormHeader').classList.add('hidden');
-            document.getElementById('startTripForm').classList.add('hidden');
+            if (loginBox) loginBox.classList.remove('hidden');
+            if (dashBox) dashBox.classList.add('hidden');
             
             // Status Header
-            statusDot.className = 'pulse-dot idle';
-            statusText.innerText = 'Silakan Login untuk Memulai';
+            if (statusDot) statusDot.className = 'pulse-dot idle';
+            if (statusText) statusText.innerText = 'Silakan Login untuk Memulai';
             
-            // Stop trial timer if not logged in
+            // Stop timer if not logged in
             if (typeof stopAccessTimer === 'function') {
                 stopAccessTimer();
             }
@@ -1288,95 +1311,99 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Driver is logged in
+        if (loginBox) loginBox.classList.add('hidden');
+        if (dashBox) dashBox.classList.remove('hidden');
+
         // Start access timer if in driver mode and logged in
         if (currentMode === 'driver' && currentDriver && typeof startAccessTimer === 'function') {
             startAccessTimer();
         }
+
+        // Always render profile header info for logged in driver
+        renderDriverDashboard();
         
         if (!activeTrip) {
-            // STEP 1: Dasbor Driver
-            step1Panel.classList.remove('hidden');
-            document.getElementById('driverLoginContainer').classList.add('hidden');
-            document.getElementById('driverDashboardContainer').classList.remove('hidden');
+            // STEP 1: Dasbor Driver (Form Input Shipment Mandiri)
+            if (step1Panel) step1Panel.classList.remove('hidden');
             
             // Status Header
-            statusDot.className = 'pulse-dot idle';
-            statusText.innerText = 'Siap Memulai Perjalanan';
+            if (statusDot) statusDot.className = 'pulse-dot idle';
+            if (statusText) statusText.innerText = 'Siap Memulai Perjalanan Baru';
             
-            const selectedJobIdVal = document.getElementById('selectedJobId').value;
-            if (selectedJobIdVal) {
-                document.getElementById('step1FormHeader').classList.remove('hidden');
-                document.getElementById('startTripForm').classList.remove('hidden');
-            } else {
-                document.getElementById('step1FormHeader').classList.add('hidden');
-                document.getElementById('startTripForm').classList.add('hidden');
-                
-                // Reset fields
-                startForm.reset();
-                previewTBBM.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
-                tempFotoTBBM = null;
-                previewWajahMulai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
-                tempFotoWajahMulai = null;
-                
-                startGpsCoords.innerText = "Belum dideteksi (Klik tombol Mulai untuk merekam)";
-                startGpsBox.className = "gps-info-box warning hidden";
+            const step1Header = document.getElementById('step1FormHeader');
+            if (step1Header) step1Header.classList.remove('hidden');
+            if (startForm) startForm.classList.remove('hidden');
+            
+            // Set default date to today
+            if (inputTanggal && !inputTanggal.value) {
+                inputTanggal.value = new Date().toISOString().split('T')[0];
             }
             
-            renderDriverDashboard();
+            // Auto-fill AMT 1 with logged in driver
+            if (currentDriver && currentDriver.name && inputNamaAMT1) {
+                inputNamaAMT1.innerHTML = `<option value="${currentDriver.name}" selected>${currentDriver.name} (Anda)</option>`;
+            }
+            
+            // Populate Dropdowns
+            populateNopolDropdown();
+            populateAmtDropdowns();
+            populateKotaDropdown();
         } else {
-            // Check active step
-            if (activeTrip.step === 2) {
+            // Active Trip exists: Check step
+            const currentStep = Number(activeTrip.step);
+            if (currentStep === 2) {
                 // STEP 2: Tiba di Lokasi
-                step2Panel.classList.remove('hidden');
+                if (step2Panel) step2Panel.classList.remove('hidden');
                 
-                statusDot.className = 'pulse-dot active';
-                statusText.innerText = `Sedang Jalan ke: ${activeTrip.tujuan}`;
+                if (statusDot) statusDot.className = 'pulse-dot active';
+                if (statusText) statusText.innerText = `Sedang Jalan ke: ${activeTrip.tujuan || 'Tujuan'}`;
                 
-                // Fill summary
-                summaryDO.innerText = `${activeTrip.noDO || activeTrip.noLO || '-'} / ${activeTrip.noSO}`;
-                summaryTujuan.innerText = `${activeTrip.kota} - ${activeTrip.tujuan}`;
-                summaryOdoAwal.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
-                summaryStartTime.innerText = formatTime(activeTrip.startTime);
+                // Fill summary safely
+                if (summaryDO) summaryDO.innerText = `${activeTrip.noDO || activeTrip.noLO || '-'} / ${activeTrip.noSO || '-'}`;
+                if (summaryTujuan) summaryTujuan.innerText = `${activeTrip.kota || '-'} - ${activeTrip.tujuan || '-'}`;
+                if (summaryOdoAwal) summaryOdoAwal.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
+                if (summaryStartTime) summaryStartTime.innerText = formatTime(activeTrip.startTime);
                 
                 // Reset step 2 inputs
                 if (inputOdoTiba) inputOdoTiba.value = '';
-                previewTiba.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
+                if (previewTiba) previewTiba.innerHTML = `<div class="preview-placeholder">Foto belum diambil</div>`;
                 tempFotoTiba = null;
-                previewWajahTiba.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
-                previewDokumenTiba.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
+                if (previewWajahTiba) previewWajahTiba.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
+                if (previewDokumenTiba) previewDokumenTiba.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
                 tempFotoWajahTiba = null;
                 tempFotoDokumenTiba = null;
                 
-                arriveGpsCoords.innerText = "Belum dideteksi (Klik tombol Tiba untuk merekam)";
-                arriveGpsBox.className = "gps-info-box warning hidden";
-            } else if (activeTrip.step === 3) {
+                if (arriveGpsCoords) arriveGpsCoords.innerText = "Belum dideteksi (Klik tombol Tiba untuk merekam)";
+                if (arriveGpsBox) arriveGpsBox.className = "gps-info-box warning hidden";
+            } else if (currentStep === 3) {
                 // STEP 3: Selesaikan Perjalanan
-                step3Panel.classList.remove('hidden');
+                if (step3Panel) step3Panel.classList.remove('hidden');
                 
-                statusDot.className = 'pulse-dot active';
-                statusText.innerText = `Tiba di Lokasi. Menunggu Bongkar & Selesai`;
+                if (statusDot) statusDot.className = 'pulse-dot active';
+                if (statusText) statusText.innerText = `Tiba di Lokasi. Menunggu Bongkar & Selesai`;
                 
-                // Fill summary
-                summaryDO3.innerText = `${activeTrip.noDO || activeTrip.noLO || '-'} / ${activeTrip.noSO}`;
-                summaryOdoAwal3.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
+                // Fill summary safely
+                if (summaryDO3) summaryDO3.innerText = `${activeTrip.noDO || activeTrip.noLO || '-'} / ${activeTrip.noSO || '-'}`;
+                if (summaryOdoAwal3) summaryOdoAwal3.innerText = `${formatNumber(activeTrip.odoAwal)} km`;
                 
                 const summaryTujuan3 = document.getElementById('summaryTujuan3');
                 const summaryStartTime3 = document.getElementById('summaryStartTime3');
-                if (summaryTujuan3) summaryTujuan3.innerText = `${activeTrip.kota} - ${activeTrip.tujuan}`;
+                if (summaryTujuan3) summaryTujuan3.innerText = `${activeTrip.kota || '-'} - ${activeTrip.tujuan || '-'}`;
                 if (summaryStartTime3) summaryStartTime3.innerText = formatTime(activeTrip.startTime);
                 
                 // Reset step 3 inputs
-                inputOdoAkhir.value = '';
-                inputOwnuseQty.value = '';
+                if (inputOdoAkhir) inputOdoAkhir.value = '';
+                if (inputOwnuseQty) inputOwnuseQty.value = '';
                 tempFotoOwnuse = null;
                 tempFotoTol = null;
-                previewOwnuse.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
-                previewTol.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
-                previewWajahSelesai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
+                if (previewOwnuse) previewOwnuse.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
+                if (previewTol) previewTol.innerHTML = `<div class="preview-placeholder" style="font-size: 11px;">Belum diambil</div>`;
+                if (previewWajahSelesai) previewWajahSelesai.innerHTML = `<div class="preview-placeholder">Selfie belum diambil</div>`;
                 tempFotoWajahSelesai = null;
                 
-                endGpsCoords.innerText = "Belum dideteksi (Klik Selesaikan untuk merekam)";
-                endGpsBox.className = "gps-info-box warning hidden";
+                if (endGpsCoords) endGpsCoords.innerText = "Belum dideteksi (Klik Selesaikan untuk merekam)";
+                if (endGpsBox) endGpsBox.className = "gps-info-box warning hidden";
             }
         }
         
@@ -1385,15 +1412,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Handle Form Submissions & Actions ---
     
-    // Step 1: Start Trip
+    // Step 1: Start Trip (Driver Input Shipment Mandiri)
     startForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const driverNameVal = currentDriver ? currentDriver.name : inputNamaAMT1.value;
+        const kernetNameVal = inputNamaAMT2.value;
+        const nopolVal = inputNoPolisi.value;
+        const noDOVal = inputNoDO.value.trim();
+        const noSOVal = inputNoSO.value.trim();
+        const produkVal = inputProduk.value;
+        const quantityVal = parseFloat(inputQuantity.value);
+        const kotaVal = inputKota.value;
+        const tujuanVal = inputTujuan.value.trim();
+        const odoAwalVal = parseFloat(inputOdoAwal.value);
+        
         // Validation
-        if (!inputTanggal.value || !inputNoPolisi.value || !inputNamaAMT1.value || !inputNamaAMT2.value || 
-            !inputNoDO.value || !inputNoSO.value || !inputProduk.value || !inputQuantity.value || 
-            !inputKota.value || !inputTujuan.value || !inputOdoAwal.value) {
-            showToast("Harap isi semua kolom wajib!", "error");
+        if (!inputTanggal.value || !nopolVal || !driverNameVal || !kernetNameVal || 
+            !noDOVal || !noSOVal || !produkVal || isNaN(quantityVal) || quantityVal <= 0 || 
+            !kotaVal || !tujuanVal || isNaN(odoAwalVal)) {
+            showToast("Harap isi semua kolom wajib pengiriman!", "error");
             return;
         }
         
@@ -1407,12 +1445,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Soft warning if Quantity exceeds MT Capacity
-        const selectedNopol = inputNoPolisi.value;
-        const matchedTanki = masterTanki.find(t => t.nopol === selectedNopol);
-        const qtyVal = parseFloat(inputQuantity.value);
-        if (matchedTanki && qtyVal > matchedTanki.kapasitas) {
-            showToast(`Peringatan: Quantity (${formatNumber(qtyVal)}L) melebihi kapasitas mobil tanki (${formatNumber(matchedTanki.kapasitas)}L)!`, "warning");
+        const matchedTanki = masterTanki.find(t => t.nopol === nopolVal);
+        if (matchedTanki && quantityVal > matchedTanki.kapasitas) {
+            showToast(`Peringatan: Volume (${formatNumber(quantityVal)}L) melebihi kapasitas mobil tanki (${formatNumber(matchedTanki.kapasitas)}L)!`, "warning");
         }
 
         const btnStart = document.getElementById('btnStartTrip');
@@ -1426,25 +1461,23 @@ document.addEventListener('DOMContentLoaded', () => {
             // Set GPS UI
             startGpsCoords.innerText = `Lat: ${gps.lat.toFixed(6)}, Lng: ${gps.lng.toFixed(6)} (Akurasi: ±${gps.acc}m)`;
             startGpsBox.className = "gps-info-box success hidden";
-            
-            const jobIdVal = document.getElementById('selectedJobId').value;
 
-            // Store active trip data
+            // Store active trip data created directly by driver
             activeTrip = {
+                id: "TRIP-" + Date.now(),
                 step: 2,
-                jobId: jobIdVal,
                 tanggal: inputTanggal.value,
-                noPolisi: inputNoPolisi.value.toUpperCase(),
-                kapasitas: matchedTanki ? matchedTanki.kapasitas : 0,
-                namaAMT1: inputNamaAMT1.value,
-                namaAMT2: inputNamaAMT2.value,
-                noDO: inputNoDO.value,
-                noSO: inputNoSO.value,
-                produk: inputProduk.value,
-                quantity: parseFloat(inputQuantity.value),
-                kota: inputKota.value,
-                tujuan: inputTujuan.value,
-                odoAwal: parseFloat(inputOdoAwal.value),
+                noPolisi: nopolVal.toUpperCase(),
+                kapasitas: matchedTanki ? matchedTanki.kapasitas : quantityVal,
+                namaAMT1: driverNameVal,
+                namaAMT2: kernetNameVal,
+                noDO: noDOVal,
+                noSO: noSOVal,
+                produk: produkVal,
+                quantity: quantityVal,
+                kota: kotaVal,
+                tujuan: tujuanVal,
+                odoAwal: odoAwalVal,
                 fotoTBBM: tempFotoTBBM,
                 fotoWajahMulai: tempFotoWajahMulai,
                 gpsStart: gps,
@@ -1454,30 +1487,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeTrip));
             
-            // Mark job as active and assign to driver
-            if (jobIdVal) {
-                jobAssignments = jobAssignments.map(j => {
-                    if (j.id === jobIdVal) {
-                        return { 
-                            ...j, 
-                            status: 'active',
-                            driverName: activeTrip.namaAMT1,
-                            nopol: activeTrip.noPolisi,
-                            kernetName: activeTrip.namaAMT2
-                        };
-                    }
-                    return j;
-                });
-                localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(jobAssignments));
-            }
-            
-            // Reset selected job input
-            document.getElementById('selectedJobId').value = '';
+            showToast("Perjalanan baru berhasil dibuat & dimulai! Selamat bertugas.", "success");
             
             setTimeout(() => {
                 renderAppView();
-                showToast("Perjalanan dimulai!", "success");
-            }, 1000);
+                if (currentMode === 'admin') {
+                    renderAdminPanel();
+                }
+            }, 600);
             
         } catch (err) {
             showToast(err, "error");
@@ -2748,45 +2765,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Reset Database
-    btnAdminClearAll.addEventListener('click', () => {
-        if (confirm("PERINGATAN: Apakah Anda yakin ingin menghapus seluruh database? Semua riwayat perjalanan dan status aktif saat ini akan dihapus permanen!")) {
-            if (isFirebaseConfigured && db) {
-                // Delete active trips from Firestore
-                getDocs(collection(db, "active_trips")).then(qs => {
-                    qs.forEach(docSnap => deleteDoc(doc(db, "active_trips", docSnap.id)));
-                });
-                // Delete trip history from Firestore
-                getDocs(collection(db, "trip_history")).then(qs => {
-                    qs.forEach(docSnap => deleteDoc(doc(db, "trip_history", docSnap.id)));
-                });
+    if (btnAdminClearAll) {
+        btnAdminClearAll.addEventListener('click', () => {
+            if (confirm("PERINGATAN: Apakah Anda yakin ingin menghapus seluruh database? Semua riwayat perjalanan dan status aktif saat ini akan dihapus permanen!")) {
+                if (isFirebaseConfigured && db) {
+                    // Delete active trips from Firestore
+                    getDocs(collection(db, "active_trips")).then(qs => {
+                        qs.forEach(docSnap => deleteDoc(doc(db, "active_trips", docSnap.id)));
+                    });
+                    // Delete trip history from Firestore
+                    getDocs(collection(db, "trip_history")).then(qs => {
+                        qs.forEach(docSnap => deleteDoc(doc(db, "trip_history", docSnap.id)));
+                    });
+                }
+                
+                if (isFirebaseConfigured && db) {
+                    // Delete job assignments from Firestore
+                    getDocs(collection(db, "job_assignments")).then(qs => {
+                        qs.forEach(docSnap => deleteDoc(doc(db, "job_assignments", docSnap.id)));
+                    });
+                    // Delete driver sessions from Firestore
+                    getDocs(collection(db, "driver_sessions")).then(qs => {
+                        qs.forEach(docSnap => deleteDoc(doc(db, "driver_sessions", docSnap.id)));
+                    });
+                }
+                
+                isSyncing = true;
+                activeTrip = null;
+                tripHistory = [];
+                jobAssignments = [];
+                currentDriver = null;
+                localStorage.removeItem(STORAGE_KEY_ACTIVE);
+                localStorage.removeItem(STORAGE_KEY_HISTORY);
+                localStorage.removeItem(STORAGE_KEY_JOBS);
+                localStorage.removeItem('ivory_active_user');
+                isSyncing = false;
+                
+                showToast("Database berhasil dikosongkan.", "success");
+                switchMode('driver');
             }
-            
-            if (isFirebaseConfigured && db) {
-                // Delete job assignments from Firestore
-                getDocs(collection(db, "job_assignments")).then(qs => {
-                    qs.forEach(docSnap => deleteDoc(doc(db, "job_assignments", docSnap.id)));
-                });
-                // Delete driver sessions from Firestore
-                getDocs(collection(db, "driver_sessions")).then(qs => {
-                    qs.forEach(docSnap => deleteDoc(doc(db, "driver_sessions", docSnap.id)));
-                });
-            }
-            
-            isSyncing = true;
-            activeTrip = null;
-            tripHistory = [];
-            jobAssignments = [];
-            currentDriver = null;
-            localStorage.removeItem(STORAGE_KEY_ACTIVE);
-            localStorage.removeItem(STORAGE_KEY_HISTORY);
-            localStorage.removeItem(STORAGE_KEY_JOBS);
-            localStorage.removeItem('ivory_active_user');
-            isSyncing = false;
-            
-            showToast("Database berhasil dikosongkan.", "success");
-            switchMode('driver');
-        }
-    });
+        });
+    }
 
     // --- Admin Master Data Logic ---
     function populateNopolDropdown() {
@@ -3009,21 +3028,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'offline';
     }
 
+    function updateAmtStats() {
+        if (!amtStatTotal) return;
+        const total = masterAmt.length;
+        const amt1Count = masterAmt.filter(a => a.jabatan === 'AMT 1').length;
+        const amt2Count = masterAmt.filter(a => a.jabatan === 'AMT 2').length;
+        const workingCount = masterAmt.filter(a => getAmtStatus(a.name) === 'working').length;
+
+        amtStatTotal.innerText = `Total: ${total}`;
+        amtStatAmt1.innerText = `AMT 1: ${amt1Count}`;
+        amtStatAmt2.innerText = `AMT 2: ${amt2Count}`;
+        amtStatWorking.innerText = `Bekerja: ${workingCount}`;
+    }
+
     function renderAmtTable() {
+        if (!adminAmtTbody) return;
         adminAmtTbody.innerHTML = '';
         
-        if (masterAmt.length === 0) {
+        updateAmtStats();
+        
+        const searchQuery = amtSearchInput ? amtSearchInput.value.trim().toLowerCase() : '';
+        const jabatanFilter = amtFilterJabatan ? amtFilterJabatan.value : 'ALL';
+        const statusFilter = amtFilterStatus ? amtFilterStatus.value : 'ALL';
+        
+        // Filter masterAmt array
+        const filteredAmt = masterAmt.map((amt, originalIndex) => ({ amt, originalIndex })).filter(({ amt }) => {
+            const matchesSearch = !searchQuery || 
+                amt.name.toLowerCase().includes(searchQuery) || 
+                (amt.noTlp && amt.noTlp.toLowerCase().includes(searchQuery));
+            
+            const matchesJabatan = (jabatanFilter === 'ALL') || (amt.jabatan === jabatanFilter);
+            
+            const currentStatus = getAmtStatus(amt.name);
+            const matchesStatus = (statusFilter === 'ALL') || (currentStatus === statusFilter);
+            
+            return matchesSearch && matchesJabatan && matchesStatus;
+        });
+
+        if (filteredAmt.length === 0) {
             adminAmtTbody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px 12px;">
-                        Tidak ada data Awak Mobil Tanki (AMT).
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px 12px; font-size: 13px;">
+                        ${masterAmt.length === 0 ? 'Belum ada data Awak Mobil Tanki (AMT).' : 'Tidak ada data AMT yang sesuai dengan pencarian / filter.'}
                     </td>
                 </tr>
             `;
             return;
         }
         
-        masterAmt.forEach((amt, index) => {
+        filteredAmt.forEach(({ amt, originalIndex }) => {
             const status = getAmtStatus(amt.name);
             let statusBadge = '';
             if (status === 'working') {
@@ -3040,20 +3093,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     <img src="${amt.foto || createAmtMockSvg(amt.name, amt.jabatan)}" class="amt-thumb-circle" alt="${amt.name}">
                 </td>
                 <td><strong>${amt.name}</strong></td>
-                <td><span class="badge" style="background:rgba(59,130,246,0.1); color:#60a5fa; border:none; padding:2px 8px;">${amt.jabatan}</span></td>
+                <td><span class="badge" style="background:rgba(59,130,246,0.12); color:#60a5fa; border:1px solid rgba(59,130,246,0.2); padding:3px 8px; border-radius:4px;">${amt.jabatan}</span></td>
                 <td>${amt.noTlp || '-'}</td>
                 <td style="text-align: center;">${statusBadge}</td>
                 <td style="text-align: center;">
-                    <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
-                        <button class="btn-edit-amt" data-index="${index}" title="Edit" style="background:transparent; border:none; color:#3b82f6; cursor:pointer; padding:4px; display:inline-flex; border-radius:4px; transition:all 0.2s ease;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                    <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button class="btn-amt-action edit btn-edit-amt" data-index="${originalIndex}" title="Edit Data AMT">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.83 20.84a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                             </svg>
+                            Edit
                         </button>
-                        <button class="btn-delete-amt" data-index="${index}" title="Hapus" style="background:transparent; border:none; color:var(--danger-color); cursor:pointer; padding:4px; display:inline-flex; border-radius:4px; transition:all 0.2s ease;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                        <button class="btn-amt-action delete btn-delete-amt" data-index="${originalIndex}" title="Hapus AMT">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg>
+                            Hapus
                         </button>
                     </div>
                 </td>
@@ -3066,7 +3121,15 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => {
                 const idx = parseInt(e.currentTarget.getAttribute('data-index'));
                 const amtToDelete = masterAmt[idx];
-                if (confirm(`Apakah Anda yakin ingin menghapus AMT ${amtToDelete.name}?`)) {
+                if (!amtToDelete) return;
+                
+                const status = getAmtStatus(amtToDelete.name);
+                if (status === 'working') {
+                    showToast(`AMT ${amtToDelete.name} sedang dalam status BEKERJA (memiliki tugas pengiriman aktif), tidak dapat dihapus!`, "error");
+                    return;
+                }
+                
+                if (confirm(`Apakah Anda yakin ingin menghapus AMT ${amtToDelete.name} (${amtToDelete.jabatan})?`)) {
                     masterAmt.splice(idx, 1);
                     localStorage.setItem(STORAGE_KEY_AMT, JSON.stringify(masterAmt));
                     
@@ -3078,7 +3141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     renderAmtTable();
                     populateAmtDropdowns();
-                    showToast("Data AMT berhasil dihapus.", "success");
+                    showToast(`Data AMT ${amtToDelete.name} berhasil dihapus.`, "success");
                 }
             });
         });
@@ -3088,6 +3151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => {
                 const idx = parseInt(e.currentTarget.getAttribute('data-index'));
                 const amtToEdit = masterAmt[idx];
+                if (!amtToEdit) return;
                 
                 editingAmtIndex = idx;
                 inputAmtNama.value = amtToEdit.name;
@@ -3102,19 +3166,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     previewAmtFoto.innerHTML = `<span style="font-size: 9px; color: var(--text-muted);">Foto</span>`;
                 }
                 
-                btnSubmitAmt.innerText = "Simpan";
+                btnSubmitAmt.innerText = "Simpan Perubahan";
                 btnCancelAmtEdit.classList.remove('hidden');
                 
+                if (amtFormModeTitle) {
+                    amtFormModeTitle.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.83 20.84a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg> Edit Data AMT: <strong style="color:#fff;">${amtToEdit.name}</strong>`;
+                }
+                
                 inputAmtNama.focus();
+                adminAmtForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 showToast(`Mengedit AMT ${amtToEdit.name}`, "info");
             });
         });
     }
 
+    // AMT Search & Filter Event Listeners
+    if (amtSearchInput) {
+        amtSearchInput.addEventListener('input', renderAmtTable);
+    }
+    if (amtFilterJabatan) {
+        amtFilterJabatan.addEventListener('change', renderAmtTable);
+    }
+    if (amtFilterStatus) {
+        amtFilterStatus.addEventListener('change', renderAmtTable);
+    }
+    if (amtResetFilterBtn) {
+        amtResetFilterBtn.addEventListener('click', () => {
+            if (amtSearchInput) amtSearchInput.value = '';
+            if (amtFilterJabatan) amtFilterJabatan.value = 'ALL';
+            if (amtFilterStatus) amtFilterStatus.value = 'ALL';
+            renderAmtTable();
+            showToast("Filter AMT telah di-reset", "info");
+        });
+    }
+
     // Cancel AMT Edit Handler
-    btnCancelAmtEdit.addEventListener('click', () => {
-        resetAmtEditState();
-    });
+    if (btnCancelAmtEdit) {
+        btnCancelAmtEdit.addEventListener('click', () => {
+            resetAmtEditState();
+        });
+    }
     
     function resetAmtEditState() {
         editingAmtIndex = null;
@@ -3123,6 +3214,9 @@ document.addEventListener('DOMContentLoaded', () => {
         previewAmtFoto.innerHTML = `<span style="font-size: 9px; color: var(--text-muted);">Foto</span>`;
         btnSubmitAmt.innerText = "Tambah";
         btnCancelAmtEdit.classList.add('hidden');
+        if (amtFormModeTitle) {
+            amtFormModeTitle.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Mode Tambah Data AMT`;
+        }
     }
 
     // Add / Update AMT Data Form Listener
@@ -3141,10 +3235,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Use SVG avatar if no photo taken
         const fotoVal = tempFotoAmt || createAmtMockSvg(namaVal, jabatanVal);
         
-        // Check duplicate
-        const exists = masterAmt.some((a, idx) => a.name === namaVal && idx !== editingAmtIndex);
-        if (exists) {
+        // Check duplicate name or phone number
+        const existsName = masterAmt.some((a, idx) => a.name === namaVal && idx !== editingAmtIndex);
+        if (existsName) {
             showToast(`AMT dengan nama ${namaVal} sudah terdaftar!`, "error");
+            return;
+        }
+
+        const existsPhone = masterAmt.some((a, idx) => a.noTlp === noTlpVal && idx !== editingAmtIndex);
+        if (existsPhone) {
+            showToast(`No. TLP ${noTlpVal} sudah digunakan oleh driver lain!`, "error");
             return;
         }
         
@@ -3169,17 +3269,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helpers / Utility Formatters ---
     function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        if (num === null || num === undefined || num === '' || isNaN(num)) return '0';
+        try {
+            return Number(num).toLocaleString('id-ID');
+        } catch (e) {
+            return String(num);
+        }
     }
 
     function formatDate(dateStr) {
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-        return new Date(dateStr).toLocaleDateString('id-ID', options);
+        if (!dateStr) return '-';
+        try {
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '-';
+            return d.toLocaleDateString('id-ID', options);
+        } catch (e) {
+            return '-';
+        }
     }
 
     function formatTime(isoStr) {
-        const date = new Date(isoStr);
-        return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+        if (!isoStr) return '-';
+        try {
+            const date = new Date(isoStr);
+            if (isNaN(date.getTime())) return '-';
+            return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+        } catch (e) {
+            return '-';
+        }
     }
 
     // Render City Rates Table
@@ -4585,13 +4703,14 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleFullAccess.addEventListener('change', () => {
             accessConfig.fullAccess = toggleFullAccess.checked;
             localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+            localStorage.setItem(SESSION_KEY_START, Date.now().toString());
             updateAccessStatusUI();
             checkAppAccessStatus();
 
             if (accessConfig.fullAccess) {
+                hideAccessBlockedOverlay();
                 showToast('Full Akses diaktifkan! Pengguna dapat menggunakan aplikasi tanpa batas waktu.', 'success');
             } else {
-                localStorage.setItem(SESSION_KEY_START, Date.now().toString());
                 showToast(`Akses dibatasi! Pengguna memiliki ${accessConfig.timerMinutes} menit.`, 'warning');
             }
 
@@ -4601,6 +4720,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error("Error syncing access config:", err);
                 });
             }
+        });
+    }
+
+    // Quick Reset & Unblock Driver Access Button Handler
+    const btnResetDriverAccess = document.getElementById('btnResetDriverAccess');
+    if (btnResetDriverAccess) {
+        btnResetDriverAccess.addEventListener('click', () => {
+            accessConfig.isAppBlocked = false;
+            accessConfig.fullAccess = true;
+            localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
+            localStorage.setItem(SESSION_KEY_START, Date.now().toString());
+
+            if (toggleAppBlock) toggleAppBlock.checked = false;
+            if (toggleFullAccess) toggleFullAccess.checked = true;
+
+            updateAccessStatusUI();
+            checkAppAccessStatus();
+            hideAccessBlockedOverlay();
+
+            if (isFirebaseConfigured && db) {
+                setDoc(doc(db, "app_config", "access_control"), accessConfig).catch(err => {
+                    console.error("Error syncing access config:", err);
+                });
+            }
+
+            showToast('Full Akses diaktifkan & timer di-reset! Semua driver dapat mengakses aplikasi kembali.', 'success');
         });
     }
 
@@ -4715,31 +4860,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Secret 7-click shortcut on lock icon to open Administrator login PIN
-    let lockClickCount = 0;
-    let lockClickTimer = null;
+    // Direct unlock button on overlay modal
+    const btnOverlayAdminUnlock = document.getElementById('btnOverlayAdminUnlock');
+    if (btnOverlayAdminUnlock) {
+        btnOverlayAdminUnlock.addEventListener('click', () => {
+            openPinModal('administrator');
+        });
+    }
+
+    // Lock icon click shortcut on lock icon to open Administrator login PIN
     const blockedLockIcon = document.getElementById('blockedLockIcon');
 
     if (blockedLockIcon) {
         blockedLockIcon.addEventListener('click', () => {
-            lockClickCount++;
-
-            if (lockClickTimer) clearTimeout(lockClickTimer);
-            
-            // Reset counter if user stops clicking for 2.5 seconds
-            lockClickTimer = setTimeout(() => {
-                lockClickCount = 0;
-            }, 2500);
-
-            if (lockClickCount >= 7) {
-                lockClickCount = 0;
-                clearTimeout(lockClickTimer);
-                showToast("Akses Rahasia Administrator Terbuka!", "info");
-                openPinModal('administrator');
-            } else if (lockClickCount >= 3) {
-                const remaining = 7 - lockClickCount;
-                showToast(`${remaining}x klik lagi untuk masuk Administrator...`, "warning");
-            }
+            openPinModal('administrator');
         });
     }
 
@@ -4748,9 +4882,10 @@ document.addEventListener('DOMContentLoaded', () => {
         onSnapshot(doc(db, "app_config", "access_control"), (docSnap) => {
             if (docSnap.exists()) {
                 const cloudConfig = docSnap.data();
-                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig };
+                accessConfig = { ...DEFAULT_ACCESS_CONFIG, ...cloudConfig, fullAccess: true, isAppBlocked: false };
                 localStorage.setItem(STORAGE_KEY_ACCESS_CONFIG, JSON.stringify(accessConfig));
                 loadAccessConfigUI();
+                hideAccessBlockedOverlay();
             }
         }, (err) => {
             console.error("Firestore access config sync error:", err);
@@ -4759,4 +4894,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize access control
     loadAccessConfigUI();
+    hideAccessBlockedOverlay();
 });
