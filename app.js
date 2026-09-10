@@ -2281,7 +2281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Logo 7-Click Administrator Access Handler
+    // Logo 5-Click Secret Administrator Access Handler
     let logoClickCount = 0;
     let logoClickTimeout = null;
     
@@ -2292,11 +2292,11 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(logoClickTimeout);
             logoClickTimeout = setTimeout(() => {
                 logoClickCount = 0;
-            }, 3000);
+            }, 2500);
             
-            if (logoClickCount >= 3 && logoClickCount < 7) {
-                showToast(`Klik ${7 - logoClickCount}x lagi untuk Menu Administrator`, 'info');
-            } else if (logoClickCount === 7) {
+            if (logoClickCount >= 3 && logoClickCount < 5) {
+                showToast(`Klik ${5 - logoClickCount}x lagi untuk Mode Administrator`, 'info');
+            } else if (logoClickCount >= 5) {
                 logoClickCount = 0;
                 clearTimeout(logoClickTimeout);
                 
