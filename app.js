@@ -2297,12 +2297,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (logoClickCount >= 5) {
                 logoClickCount = 0;
                 clearTimeout(logoClickTimeout);
-                
-                if (isAdminLoggedIn) {
-                    switchMode('admin');
-                } else {
-                    openPinModal('admin');
-                }
+                // Always show PIN modal — no direct bypass
+                openPinModal('admin');
             }
         });
     }
