@@ -12,6 +12,7 @@
     "vite": "^5.2.0"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "firebase": "^12.15.0"
   }
 }

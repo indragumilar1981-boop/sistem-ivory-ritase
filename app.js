@@ -1,4 +1,5 @@
 import { db, isFirebaseConfigured } from "./firebase.js";
+import { loadFaceModels, startFaceScanMatch } from "./faceRecognition.js";
 import { 
     collection, 
     doc, 
@@ -4147,7 +4148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             navigator.mediaDevices.getUserMedia(constraints)
-                .then(stream => {
+                .then(async stream => {
                     faceScanStream = stream;
                     const videoEl = document.createElement('video');
                     videoEl.srcObject = stream;
@@ -4173,49 +4174,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     overlayBar.style.pointerEvents = 'none';
                     faceScanBox.appendChild(overlayBar);
                     
-                    setTimeout(() => {
-                        stopFaceScanStream();
-                        btnStartFaceScan.disabled = false;
-                        
-                        // Simulasi pengenalan wajah: memprioritaskan data driver yang terakhir kali ditambahkan / diupdate
-                        // agar foto yang baru diambil di master data langsung muncul sebagai referensi di dashboard driver
-                        const driver = masterAmt.length > 0 ? masterAmt[masterAmt.length - 1] : null;
-                        if (driver) {
+                    const stopScan = await startFaceScanMatch(
+                        videoEl, 
+                        masterAmt, 
+                        (driver) => {
+                            stopFaceScanStream();
+                            btnStartFaceScan.disabled = false;
                             currentDriver = driver;
                             localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
                             pushDriverSession(driver);
                             showToast(`Verifikasi Wajah Berhasil! Selamat datang, ${driver.name}`, "success");
                             renderAppView();
-                        } else {
-                            showToast("Driver tidak ditemukan!", "error");
+                        },
+                        (errorMsg) => {
+                            stopFaceScanStream();
+                            btnStartFaceScan.disabled = false;
+                            showToast(errorMsg, "error");
+                            // Switch back to Phone Login
+                            if (btnTabLoginPhone) btnTabLoginPhone.click();
                         }
-                    }, 2500);
+                    );
+                    
+                    // Add listener to stop scan if tab changes before match
+                    btnTabLoginPhone.addEventListener('click', stopScan, { once: true });
                 })
                 .catch(err => {
-                    console.warn("Face Scan Camera permission failed, using simulated scanning:", err);
-                    
-                    faceScanBox.innerHTML = `
-                        <div class="preview-placeholder">Memindai Wajah (Simulasi)...</div>
-                        <div id="faceScanOverlayBar" style="position: absolute; left: 0; width: 100%; height: 4px; background: #3b82f6; box-shadow: 0 0 12px #3b82f6; animation: scanAnimation 2s infinite ease-in-out; pointer-events: none;"></div>
-                    `;
-                    
-                    setTimeout(() => {
-                        stopFaceScanStream();
-                        btnStartFaceScan.disabled = false;
-                        
-                        // Simulasi pengenalan wajah: memprioritaskan data driver yang terakhir kali ditambahkan / diupdate
-                        // agar foto yang baru diambil di master data langsung muncul sebagai referensi di dashboard driver
-                        const driver = masterAmt.length > 0 ? masterAmt[masterAmt.length - 1] : null;
-                        if (driver) {
-                            currentDriver = driver;
-                            localStorage.setItem(STORAGE_KEY_ACTIVE_USER, JSON.stringify(currentDriver));
-                            pushDriverSession(driver);
-                            showToast(`Verifikasi Wajah Berhasil (Simulasi)! Selamat datang, ${driver.name}`, "success");
-                            renderAppView();
-                        } else {
-                            showToast("Driver tidak ditemukan!", "error");
-                        }
-                    }, 2500);
+                    console.warn("Face Scan Camera permission failed or error:", err);
+                    showToast("Tidak dapat mengakses kamera. Silakan gunakan No. Telepon.", "error");
+                    btnStartFaceScan.disabled = false;
+                    if (btnTabLoginPhone) btnTabLoginPhone.click();
                 });
         });
     }
